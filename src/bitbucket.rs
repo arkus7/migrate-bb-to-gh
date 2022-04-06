@@ -13,6 +13,12 @@ pub struct Project {
   name: String
 }
 
+impl Project {
+  pub fn get_key(&self) -> &str {
+    &self.key
+  }
+}
+
 impl Display for Project {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} (Key: {})", self.name, self.key)
@@ -20,9 +26,48 @@ impl Display for Project {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ProjectResponse {
+struct ProjectResponse {
   values: Vec<Project>,
   next: Option<String>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct RepositoriesResponse {
+  values: Vec<Repository>,
+  next: Option<String>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Repository {
+  links: RepositoryLinks,
+  full_name: String,
+  name: String,
+  mainbranch: MainBranch,
+}
+
+impl Display for Repository {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.name)
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct RepositoryLinks {
+  clone: Vec<CloneLink>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "name", content = "href")]
+#[serde(rename_all = "snake_case")]
+enum CloneLink {
+  Ssh(String),
+  Https(String)
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MainBranch {
+  name: String
 }
 
 pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
@@ -36,6 +81,13 @@ pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
   }
 
   Ok(projects)
+}
+
+pub async fn get_repositories(project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
+  let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = "moodup", key = project_key, pagelen = 100);
+  let res: RepositoriesResponse = send_get_request(url).await?;
+
+  Ok(res.values)
 }
 
 async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, reqwest::Error> {
