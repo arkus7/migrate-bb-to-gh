@@ -1,12 +1,8 @@
-use std::{path::PathBuf};
-
-use bitbucket::Repository;
-use github::TeamRepositoryPermission;
-
-use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 mod bitbucket;
 mod github;
+mod migrator;
 mod spinner;
 mod wizard;
 
@@ -23,27 +19,22 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Guides you through migration process, generating migration file for "migrate" subcommand
     Wizard {
-        #[clap(short, long, parse(from_os_str), value_name = "OUTPUT_FILE")]
-        output: Option<PathBuf>,
+        #[clap(
+            short,
+            long,
+            parse(from_os_str),
+            value_name = "OUTPUT_FILE",
+            default_value = "migration.json"
+        )]
+        output: PathBuf,
     },
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "snake_case")]
-enum Action {
-    MigrateRepositories {
-        repositories: Vec<Repository>,
-    },
-    CreateTeam {
-        name: String,
-        repositories: Vec<String>,
-    },
-    AssignRepositoriesToTeam {
-        team_name: String,
-        team_id: u32,
-        permission: TeamRepositoryPermission,
-        repositories: Vec<String>,
+    /// Migrates repositories from Bitbucket to GitHub, following the actions defined in migration file
+    Migrate {
+        /// Path to migration file
+        #[clap(parse(from_os_str), value_name = "MIGRATION_FILE")]
+        migration_file: PathBuf,
     },
 }
 
@@ -53,14 +44,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match &cli.command {
         Commands::Wizard { output } => {
-            let output_path = output.clone().unwrap_or_else(|| {
-                let mut path = PathBuf::from("./migration.json");
-                path.set_extension("json");
-                path
-            });
-
-            let wizard = Wizard::new(output_path);
-            wizard.run().await?;
+            let wizard = Wizard::new(output.clone());
+            let res = wizard.run().await?;
+            dbg!(res);
+        }
+        Commands::Migrate { migration_file } => {
+            migrator::migrate(migration_file).await?;
         }
     }
 
