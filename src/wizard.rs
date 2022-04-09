@@ -42,7 +42,16 @@ impl Wizard {
         let migrate_action = Action::MigrateRepositories { repositories };
         let team_action = self.select_team(project, repositories_names).await?;
 
-        let actions = vec![migrate_action, team_action];
+        let assign_action = if let Action::CreateTeam { name, repositories } = &team_action {
+            Some(self.select_permissions_action(name, None, repositories)?)
+        } else {
+            None
+        };
+
+        let mut actions = vec![migrate_action, team_action];
+        if let Some(assign_action) = assign_action {
+            actions.push(assign_action);
+        }
 
         self.save_migration_file(&actions)?;
 
@@ -88,29 +97,36 @@ impl Wizard {
 
                 let team = teams.get(team_selection).expect("Invalid team selected");
 
-                let permission = Select::with_theme(&self.theme)
-                    .with_prompt("Select permission to the repositories for selected team")
-                    .item("Read")
-                    .item("Write")
-                    .default(1)
-                    .interact()?;
-
-                let permission = match permission {
-                    0 => TeamRepositoryPermission::Pull,
-                    1 => TeamRepositoryPermission::Push,
-                    _ => unreachable!(),
-                };
-
-                Action::AssignRepositoriesToTeam {
-                    team_name: team.name.clone(),
-                    team_slug: team.slug.clone(),
-                    permission,
-                    repositories: repositories_names,
-                }
+                self.select_permissions_action(&team.name, Some(&team.slug), &repositories_names)?
             }
             _ => unreachable!(),
         };
         Ok(team_action)
+    }
+
+    fn select_permissions_action(
+        &self,
+        team_name: &str,
+        team_slug: Option<&str>,
+        repositories_names: &[String],
+    ) -> Result<Action, anyhow::Error> {
+        let permission = Select::with_theme(&self.theme)
+            .with_prompt("Select permission to the repositories for selected team")
+            .item("Read")
+            .item("Write")
+            .default(1)
+            .interact()?;
+        let permission = match permission {
+            0 => TeamRepositoryPermission::Pull,
+            1 => TeamRepositoryPermission::Push,
+            _ => unreachable!(),
+        };
+        Ok(Action::AssignRepositoriesToTeam {
+            team_name: team_name.to_string(),
+            team_slug: team_slug.map_or(Wizard::team_slug(team_name), |s| s.to_owned()),
+            permission,
+            repositories: repositories_names.to_vec(),
+        })
     }
 
     async fn select_repositories(
@@ -169,5 +185,12 @@ impl Wizard {
         serde_json::to_writer(&mut file, actions)?;
 
         Ok(())
+    }
+
+    fn team_slug(team_name: &str) -> String {
+        let regex = regex::Regex::new(r"[^a-zA-Z0-9\-]").unwrap();
+        regex
+            .replace_all(&team_name.to_lowercase(), "-")
+            .to_string()
     }
 }
