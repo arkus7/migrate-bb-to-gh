@@ -52,6 +52,17 @@ impl Display for Repository {
     }
 }
 
+impl Repository {
+    pub fn get_ssh_url(&self) -> Option<String> {
+        for link in &self.links.clone {
+            if let CloneLink::Ssh(url) = link {
+                return Some(url.clone());
+            }
+        }
+        None
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct RepositoryLinks {
     clone: Vec<CloneLink>,
