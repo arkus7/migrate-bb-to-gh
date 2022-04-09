@@ -1,9 +1,4 @@
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-    process::Command,
-    time::Duration,
-};
+use std::{fs::File, path::Path, process::Command};
 
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -170,10 +165,18 @@ async fn assign_repositories_to_team(
     permission: &TeamRepositoryPermission,
     repositories: &[String],
 ) -> Result<(), anyhow::Error> {
-    let spinner = spinner::create_spinner(format!("Assigning repositories to team {}", team_name));
-    // github::assign_repository_to_team(team_slug, permission, repositories).await?;
-    std::thread::sleep(Duration::from_secs(2));
-    spinner.finish_with_message("Assigned!");
+    println!(
+        "Assigning {} repositories to team {} ({})",
+        repositories.len(),
+        team_name,
+        permission
+    );
+    let pb = ProgressBar::new(repositories.len() as u64);
+    pb.set_style(progress_bar_style());
+    for repository in repositories {
+        github::assign_repository_to_team(team_slug, permission, repository).await?;
+        pb.inc(1);
+    }
     Ok(())
 }
 
@@ -181,16 +184,10 @@ fn migrate_repository(
     repository: &Repository,
     multi_progress: &MultiProgress,
 ) -> tokio::task::JoinHandle<Result<(), anyhow::Error>> {
-    let style = ProgressStyle::with_template(
-        "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-    )
-    .unwrap()
-    .progress_chars("##-");
-
     let steps_count = 4;
     let pb = multi_progress.add(ProgressBar::new(steps_count));
     pb.set_prefix(format!("[{}] ", repository.full_name));
-    pb.set_style(style);
+    pb.set_style(progress_bar_style());
 
     let repo = repository.clone();
     tokio::spawn(async move {
@@ -271,4 +268,10 @@ fn push_mirror(repo_path: &Path, remote_url: &str) -> Result<(), anyhow::Error> 
     }
 
     Ok(())
+}
+
+fn progress_bar_style() -> ProgressStyle {
+    ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+        .unwrap()
+        .progress_chars("##-")
 }
