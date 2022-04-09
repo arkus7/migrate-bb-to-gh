@@ -1,4 +1,9 @@
-use std::{fs::File, path::PathBuf, process::Command, thread, time::Duration};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    process::Command,
+    time::Duration,
+};
 
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -100,18 +105,10 @@ impl Action {
     }
 }
 
-pub async fn migrate(migration_file: &PathBuf) -> Result<(), anyhow::Error> {
+pub async fn migrate(migration_file: &Path) -> Result<(), anyhow::Error> {
     let file = File::open(migration_file)?;
     let actions: Vec<Action> = serde_json::from_reader(file)
         .map_err(|e| anyhow!("Error when parsing {:?} file: {}", migration_file, e))?;
-
-    // println!(
-    //     "There are {} actions to be done during migration:",
-    //     actions.len()
-    // );
-    // for (idx, action) in actions.iter().enumerate() {
-    //     println!("{}. {}", &idx + 1, action.describe());
-    // }
 
     println!("{}", describe_actions(&actions));
 
@@ -144,19 +141,16 @@ pub fn describe_actions(actions: &[Action]) -> String {
     )
 }
 
-async fn create_team(name: &str, repositories: &Vec<String>) -> Result<(), anyhow::Error> {
+async fn create_team(name: &str, repositories: &[String]) -> Result<(), anyhow::Error> {
     let spinner = spinner::create_spinner(format!("Creating team {}", name));
-    // github::create_team(name, repositories).await?;
-    std::thread::sleep(Duration::from_secs(2));
+    github::create_team(name, repositories).await?;
     spinner.finish_with_message("Created!");
     Ok(())
 }
 
-async fn migrate_repositories(repositories: &Vec<Repository>) -> Result<(), anyhow::Error> {
+async fn migrate_repositories(repositories: &[Repository]) -> Result<(), anyhow::Error> {
     println!("Migrating {} repositories", repositories.len());
     let multi_progress = MultiProgress::new();
-
-    multi_progress.println("Migrating...");
 
     let handles = repositories
         .iter()
@@ -172,9 +166,9 @@ async fn migrate_repositories(repositories: &Vec<Repository>) -> Result<(), anyh
 
 async fn assign_repositories_to_team(
     team_name: &str,
-    team_slug: &String,
+    team_slug: &str,
     permission: &TeamRepositoryPermission,
-    repositories: &Vec<String>,
+    repositories: &[String],
 ) -> Result<(), anyhow::Error> {
     let spinner = spinner::create_spinner(format!("Assigning repositories to team {}", team_name));
     // github::assign_repository_to_team(team_slug, permission, repositories).await?;
@@ -183,7 +177,7 @@ async fn assign_repositories_to_team(
     Ok(())
 }
 
-fn migrate_repository<'a>(
+fn migrate_repository(
     repository: &Repository,
     multi_progress: &MultiProgress,
 ) -> tokio::task::JoinHandle<Result<(), anyhow::Error>> {
@@ -192,48 +186,87 @@ fn migrate_repository<'a>(
     )
     .unwrap()
     .progress_chars("##-");
-    let pb = multi_progress.add(ProgressBar::new(10));
+
+    let steps_count = 4;
+    let pb = multi_progress.add(ProgressBar::new(steps_count));
     pb.set_prefix(format!("[{}] ", repository.full_name));
     pb.set_style(style);
+
     let repo = repository.clone();
     tokio::spawn(async move {
         let tempdir = TempDir::new(&repo.name)?;
         pb.set_message(format!(
-            "[1/?] Cloning {} into {}",
+            "[1/{}] Cloning {} into {}",
+            steps_count,
             repo.full_name,
             tempdir.path().display()
         ));
-
-        let _ = clone_mirror(&repo, &tempdir);
+        let _ = clone_mirror(
+            &repo.get_ssh_url().expect("no SSH repo url"),
+            tempdir.path(),
+        );
         pb.inc(1);
 
-        pb.set_message(format!("[2/?] Creating {} repository in GitHub", repo.full_name));
-        thread::sleep(Duration::from_secs(2));
-        pb.finish_with_message("Migrated!");
+        pb.set_message(format!(
+            "[2/{}] Creating {} repository in GitHub",
+            steps_count, repo.full_name
+        ));
+        let gh_repo = github::create_repository(&repo.name).await?;
+        pb.inc(1);
+
+        pb.set_message(format!(
+            "[3/{}] Mirroring {} repository to GitHub",
+            steps_count, repo.full_name
+        ));
+        let _ = push_mirror(tempdir.path(), &gh_repo.ssh_url)?;
+        pb.inc(1);
+
+        pb.set_message(format!(
+            "[4/{}] Deleting {} repository from temp directory",
+            steps_count, repo.full_name
+        ));
+        tempdir.close()?;
+
+        pb.finish_with_message("✅ Migrated successfuly!");
 
         Ok(())
     })
 }
 
-fn clone_mirror(
-    repo: &Repository,
-    tempdir: &TempDir,
-) -> Result<(), anyhow::Error> {
-    let clone_url = repo.get_ssh_url().expect("Cannot find SSH clone url");
-
+fn clone_mirror(remote_url: &str, target_path: &Path) -> Result<(), anyhow::Error> {
     let clone_command = Command::new("git")
         .arg("clone")
         .arg("--mirror")
-        .arg(&clone_url)
-        .arg(tempdir.path())
+        .arg(remote_url)
+        .arg(target_path)
         .output()?;
 
     if !clone_command.status.success() {
         return Err(anyhow!(
             "Error when cloning {} into {}: {}",
-            clone_url,
-            tempdir.path().display(),
+            remote_url,
+            target_path.display(),
             clone_command.status
+        ));
+    }
+
+    Ok(())
+}
+
+fn push_mirror(repo_path: &Path, remote_url: &str) -> Result<(), anyhow::Error> {
+    let push_command = Command::new("git")
+        .arg("push")
+        .arg("--mirror")
+        .arg(remote_url)
+        .current_dir(repo_path)
+        .output()?;
+
+    if !push_command.status.success() {
+        return Err(anyhow!(
+            "Error when pushing {} to {}: {}",
+            repo_path.display(),
+            remote_url,
+            push_command.status
         ));
     }
 
