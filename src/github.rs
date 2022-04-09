@@ -30,6 +30,12 @@ pub enum TeamPrivacy {
     Closed,
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+enum RepositoryVisibility {
+    Private,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Team {
     pub name: String,
@@ -49,6 +55,22 @@ struct CreateTeam {
     name: String,
     repo_names: Vec<String>,
     privacy: TeamPrivacy,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct CreateRepository {
+    name: String,
+    auto_init: bool,
+    private: bool,
+    visibility: RepositoryVisibility,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Repository {
+  pub id: u32,
+  pub name: String,
+  pub full_name: String,
+  pub ssh_url: String,
 }
 
 pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
@@ -97,6 +119,24 @@ pub async fn assign_repository_to_team(
 
     let res: () =
         send_put_request(url, Some(serde_json::json!({ "permission": permission }))).await?;
+
+    Ok(res)
+}
+
+pub async fn create_repository(name: &str) -> Result<Repository, anyhow::Error> {
+    let url = format!(
+        "https://api.github.com/orgs/{org_name}/repos",
+        org_name = ORGANIZATION_NAME
+    );
+
+    let body = CreateRepository {
+        name: name.to_string(),
+        auto_init: false,
+        private: true,
+        visibility: RepositoryVisibility::Private,
+    };
+
+    let res: Repository = send_post_request(url, Some(body)).await?;
 
     Ok(res)
 }
