@@ -1,7 +1,6 @@
 [package]
 name = "migrate-bb-to-gh"
-author = "Arkadiusz Żmudzin <arek@moodup.team>"
-about = "Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team"
+authors = ["Arkadiusz Żmudzin <arek@moodup.team>"]
 version = "0.1.0"
 edition = "2021"
 

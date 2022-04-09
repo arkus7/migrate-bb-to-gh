@@ -10,8 +10,9 @@ use clap::{Parser, Subcommand};
 
 use crate::wizard::Wizard;
 
+/// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
 #[derive(Parser)]
-#[clap(author, version, about)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     #[clap(subcommand)]
     command: Commands,
