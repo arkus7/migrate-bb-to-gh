@@ -142,7 +142,7 @@ impl Wizard {
         Ok(project)
     }
 
-    fn save_migration_file(&self, actions: &Vec<Action>) -> Result<(), anyhow::Error> {
+    fn save_migration_file(&self, actions: &[Action]) -> Result<(), anyhow::Error> {
         if self.output_path.exists() {
             let overwrite = Confirm::with_theme(&self.theme)
                 .with_prompt("Migration file already exists. Overwrite?")

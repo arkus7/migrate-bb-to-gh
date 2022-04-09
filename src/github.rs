@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use reqwest::{Body, IntoUrl};
+use reqwest::{IntoUrl};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 const USERNAME: &str = "arkus7";
@@ -67,10 +67,10 @@ struct CreateRepository {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Repository {
-  pub id: u32,
-  pub name: String,
-  pub full_name: String,
-  pub ssh_url: String,
+    pub id: u32,
+    pub name: String,
+    pub full_name: String,
+    pub ssh_url: String,
 }
 
 pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
@@ -88,7 +88,7 @@ pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
     Ok(not_secret_teams)
 }
 
-pub async fn create_team(name: &str, repositories: &Vec<String>) -> Result<Team, anyhow::Error> {
+pub async fn create_team(name: &str, repositories: &[String]) -> Result<Team, anyhow::Error> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/teams",
         org_name = ORGANIZATION_NAME
@@ -106,9 +106,9 @@ pub async fn create_team(name: &str, repositories: &Vec<String>) -> Result<Team,
 }
 
 pub async fn assign_repository_to_team(
-    team_slug: &String,
+    team_slug: &str,
     permission: &TeamRepositoryPermission,
-    repository_name: &String,
+    repository_name: &str,
 ) -> Result<(), anyhow::Error> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos/{repo_name}",
