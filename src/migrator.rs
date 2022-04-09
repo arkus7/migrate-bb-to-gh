@@ -1,8 +1,9 @@
-use std::{fs::File, path::PathBuf, thread, time::Duration};
+use std::{fs::File, path::PathBuf, process::Command, thread, time::Duration};
 
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
+use tempdir::TempDir;
 
 use crate::{
     bitbucket::Repository,
@@ -162,7 +163,7 @@ async fn migrate_repositories(repositories: &Vec<Repository>) -> Result<(), anyh
         .map(|repo| migrate_repository(repo, &multi_progress))
         .collect::<Vec<_>>();
     for h in handles {
-        let _ = h.join();
+        let _ = h.await??;
     }
 
     multi_progress.clear()?;
@@ -185,7 +186,7 @@ async fn assign_repositories_to_team(
 fn migrate_repository<'a>(
     repository: &Repository,
     multi_progress: &MultiProgress,
-) -> thread::JoinHandle<()> {
+) -> tokio::task::JoinHandle<Result<(), anyhow::Error>> {
     let style = ProgressStyle::with_template(
         "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
     )
@@ -195,12 +196,46 @@ fn migrate_repository<'a>(
     pb.set_prefix(format!("[{}] ", repository.full_name));
     pb.set_style(style);
     let repo = repository.clone();
-    thread::spawn(move || {
-        pb.set_message(format!("Migrating {}", repo.full_name));
-        for _ in 0..10 {
-            pb.inc(1);
-            thread::sleep(Duration::from_millis(150));
-        }
+    tokio::spawn(async move {
+        let tempdir = TempDir::new(&repo.name)?;
+        pb.set_message(format!(
+            "[1/?] Cloning {} into {}",
+            repo.full_name,
+            tempdir.path().display()
+        ));
+
+        let _ = clone_mirror(&repo, &tempdir);
+        pb.inc(1);
+
+        pb.set_message(format!("[2/?] Creating {} repository in GitHub", repo.full_name));
+        thread::sleep(Duration::from_secs(2));
         pb.finish_with_message("Migrated!");
+
+        Ok(())
     })
+}
+
+fn clone_mirror(
+    repo: &Repository,
+    tempdir: &TempDir,
+) -> Result<(), anyhow::Error> {
+    let clone_url = repo.get_ssh_url().expect("Cannot find SSH clone url");
+
+    let clone_command = Command::new("git")
+        .arg("clone")
+        .arg("--mirror")
+        .arg(&clone_url)
+        .arg(tempdir.path())
+        .output()?;
+
+    if !clone_command.status.success() {
+        return Err(anyhow!(
+            "Error when cloning {} into {}: {}",
+            clone_url,
+            tempdir.path().display(),
+            clone_command.status
+        ));
+    }
+
+    Ok(())
 }
