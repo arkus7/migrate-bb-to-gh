@@ -177,23 +177,20 @@ where
     Ok(res)
 }
 
-async fn send_put_request<T, U, B>(url: U, body: Option<B>) -> Result<T, reqwest::Error>
+async fn send_put_request<U, B>(url: U, body: Option<B>) -> Result<(), reqwest::Error>
 where
-    T: DeserializeOwned,
     U: IntoUrl,
     B: Serialize,
 {
     let client = reqwest::Client::new();
-    let res = client
+    let _ = client
         .put(url)
         .basic_auth(USERNAME, Some(PASSWORD))
         .header("User-Agent", USERNAME)
         .json(&body)
         .send()
         .await?
-        .error_for_status()?
-        .json::<T>()
-        .await?;
+        .error_for_status()?;
 
-    Ok(res)
+    Ok(())
 }
