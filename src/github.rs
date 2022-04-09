@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use reqwest::{IntoUrl};
+use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 const USERNAME: &str = "arkus7";

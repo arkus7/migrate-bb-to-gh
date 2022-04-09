@@ -32,26 +32,7 @@ impl Wizard {
 
     pub async fn run(&self) -> Result<WizardResult, anyhow::Error> {
         let project = self.select_project().await?;
-
-        let spinner =
-            spinner::create_spinner(format!("Fetching repositories from {} project", project));
-        let repositories = bitbucket::get_repositories(project.get_key()).await?;
-        spinner.finish_with_message("Fetched!");
-
-        let selection = MultiSelect::with_theme(&self.theme)
-            .with_prompt(format!("Select repositories from {} project", project))
-            .items(&repositories)
-            .interact()?;
-
-        if selection.is_empty() {
-            return Err(anyhow!("At least one repository must be selected"));
-        }
-
-        let repositories: Vec<Repository> = selection
-            .into_iter()
-            .flat_map(|idx| repositories.get(idx))
-            .cloned()
-            .collect::<Vec<_>>();
+        let repositories = self.select_repositories(&project).await?;
 
         let repositories_names: Vec<String> = repositories
             .iter()
@@ -59,14 +40,29 @@ impl Wizard {
             .collect();
 
         let migrate_action = Action::MigrateRepositories { repositories };
+        let team_action = self.select_team(project, repositories_names).await?;
 
+        let actions = vec![migrate_action, team_action];
+
+        self.save_migration_file(&actions)?;
+
+        Ok(WizardResult {
+            actions,
+            migration_file_path: self.output_path.clone(),
+        })
+    }
+
+    async fn select_team(
+        &self,
+        project: bitbucket::Project,
+        repositories_names: Vec<String>,
+    ) -> Result<Action, anyhow::Error> {
         let team_choice = Select::with_theme(&self.theme)
             .with_prompt("Team settings")
             .item("Create new team")
             .item("Select existing team")
             .default(0)
             .interact()?;
-
         let team_action = match team_choice {
             0 => {
                 let team_name: String = Input::with_theme(&self.theme)
@@ -114,15 +110,30 @@ impl Wizard {
             }
             _ => unreachable!(),
         };
+        Ok(team_action)
+    }
 
-        let actions = vec![migrate_action, team_action];
-
-        self.save_migration_file(&actions)?;
-
-        Ok(WizardResult {
-            actions,
-            migration_file_path: self.output_path.clone(),
-        })
+    async fn select_repositories(
+        &self,
+        project: &bitbucket::Project,
+    ) -> Result<Vec<Repository>, anyhow::Error> {
+        let spinner =
+            spinner::create_spinner(format!("Fetching repositories from {} project", project));
+        let repositories = bitbucket::get_repositories(project.get_key()).await?;
+        spinner.finish_with_message("Fetched!");
+        let selection = MultiSelect::with_theme(&self.theme)
+            .with_prompt(format!("Select repositories from {} project", project))
+            .items(&repositories)
+            .interact()?;
+        if selection.is_empty() {
+            return Err(anyhow!("At least one repository must be selected"));
+        }
+        let repositories: Vec<Repository> = selection
+            .into_iter()
+            .flat_map(|idx| repositories.get(idx))
+            .cloned()
+            .collect::<Vec<_>>();
+        Ok(repositories)
     }
 
     async fn select_project(&self) -> Result<bitbucket::Project, anyhow::Error> {
