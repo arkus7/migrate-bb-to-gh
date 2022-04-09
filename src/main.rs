@@ -46,7 +46,12 @@ async fn main() -> Result<(), anyhow::Error> {
         Commands::Wizard { output } => {
             let wizard = Wizard::new(output.clone());
             let res = wizard.run().await?;
-            dbg!(res);
+
+            println!(
+                "Migration file saved to {:?}",
+                std::fs::canonicalize(&res.migration_file_path)?
+            );
+            println!("{}", migrator::describe_actions(&res.actions));
         }
         Commands::Migrate { migration_file } => {
             migrator::migrate(migration_file).await?;
