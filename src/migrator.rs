@@ -71,7 +71,7 @@ impl Action {
                     .collect::<Vec<_>>()
                     .join("\n");
                 format!(
-                    "Assign {} repositories to team {} ({}):\n {}",
+                    "Assign {} repositories to team {} ({}):\n{}",
                     repositories.len(),
                     team_name,
                     permission,
