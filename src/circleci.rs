@@ -54,6 +54,7 @@ pub(crate) mod wizard {
             ));
             let mut actions: Vec<Action> = vec![];
             for repository in repositories {
+                println!();
                 println!("Configuring {} repository...", &repository.full_name);
                 let config = self.check_config_exists(&repository).await?;
                 if config.is_none() {
@@ -104,7 +105,11 @@ pub(crate) mod wizard {
                 .into_iter()
                 .map(|e| e.name)
                 .collect();
-            spinner.finish_with_message(format!("Found {} environment variables", env_vars.len()));
+            spinner.finish_with_message(format!(
+                "Found {} environment variables in '{}' project",
+                env_vars.len(),
+                &repository.name
+            ));
 
             if env_vars.is_empty() {
                 println!(
@@ -114,8 +119,18 @@ pub(crate) mod wizard {
                 return Ok(None);
             }
 
+            println!(
+                "Found {} environment variables in '{}' project:\n{}",
+                env_vars.len(),
+                &repository.name,
+                env_vars
+                    .iter()
+                    .map(|e| format!("  {}", e))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
             let move_envs = Confirm::with_theme(&self.theme)
-                .with_prompt("Do you want to move the environment variables?")
+                .with_prompt("Do you want to move the environment variables from Bitbucket to GitHub organization?")
                 .interact()?;
             let action = if move_envs {
                 let env_vars = self.select_env_vars(&env_vars).await?;
@@ -179,11 +194,17 @@ pub(crate) mod wizard {
             let config_file = github::get_file_contents(&repo.full_name, CONFIG_PATH).await;
             match config_file {
                 Result::Ok(config_file) => {
-                    spinner.finish_with_message("Found!");
+                    spinner.finish_with_message(format!(
+                        "Found CircleCI config for {}, proceeding setup...",
+                        &repo.name
+                    ));
                     Ok(Some(config_file))
                 }
                 Result::Err(_) => {
-                    spinner.finish_with_message("Not found!");
+                    spinner.finish_with_message(format!(
+                        "No CircleCI config found for {}, skipping...",
+                        &repo.name
+                    ));
                     Ok(None)
                 }
             }
@@ -257,7 +278,11 @@ pub(crate) mod wizard {
                 return Ok(vec![]);
             }
 
-            println!("Found {} new contexts: {}", diff.len(), diff.join(", "));
+            println!(
+                "Found {} undefined contexts in GitHub organization: {}",
+                diff.len(),
+                diff.join(", ")
+            );
 
             let context_selection = MultiSelect::with_theme(&self.theme)
                 .with_prompt("Select contexts to create")
@@ -293,6 +318,7 @@ pub(crate) mod wizard {
             let mut actions: Vec<Action> = vec![];
 
             for context in contexts {
+                println!("Creating {} context...", context);
                 if let Some(bb_context) = bb_contexts.iter().find(|c| c.name == context) {
                     let spinner =
                         spinner::create_spinner(format!("Fetching {} context variables", &context));
