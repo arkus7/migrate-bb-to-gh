@@ -23,7 +23,7 @@ impl Display for TeamRepositoryPermission {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TeamPrivacy {
     Secret,
@@ -36,7 +36,7 @@ enum RepositoryVisibility {
     Private,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Team {
     pub name: String,
     pub id: u32,
@@ -65,12 +65,25 @@ struct CreateRepository {
     visibility: RepositoryVisibility,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Repository {
     pub id: u32,
     pub name: String,
     pub full_name: String,
     pub ssh_url: String,
+}
+
+impl Display for Repository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.full_name)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FileContents {
+    pub name: String,
+    pub path: String,
+    pub content: String,
 }
 
 pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
@@ -137,6 +150,30 @@ pub async fn create_repository(name: &str) -> Result<Repository, anyhow::Error> 
     };
 
     let res: Repository = send_post_request(url, Some(body)).await?;
+
+    Ok(res)
+}
+
+pub async fn get_team_repositories(team_slug: &str) -> anyhow::Result<Vec<Repository>> {
+    let url = format!(
+        "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos",
+        org_name = ORGANIZATION_NAME,
+        team_slug = team_slug
+    );
+
+    let res: Vec<Repository> = send_get_request(url).await?;
+
+    Ok(res)
+}
+
+pub async fn get_file_contents(full_repo_name: &str, path: &str) -> anyhow::Result<FileContents> {
+    let url = format!(
+        "https://api.github.com/repos/{repo}/contents/{path}",
+        repo = full_repo_name,
+        path = path
+    );
+
+    let res = send_get_request(url).await?;
 
     Ok(res)
 }
