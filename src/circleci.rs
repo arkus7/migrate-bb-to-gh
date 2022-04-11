@@ -22,6 +22,11 @@ pub(crate) mod wizard {
         theme: ColorfulTheme,
     }
 
+    pub struct WizardResult {
+        pub actions: Vec<Action>,
+        pub migration_file_path: PathBuf,
+    }
+
     impl Wizard {
         pub fn new(output: &Path) -> Self {
             Self {
@@ -30,7 +35,7 @@ pub(crate) mod wizard {
             }
         }
 
-        pub async fn run(&self) -> anyhow::Result<()> {
+        pub async fn run(&self) -> anyhow::Result<WizardResult> {
             println!("Welcome to CircleCi Migration Wizard!");
             let team = self.select_team().await?;
             let repositories = self.select_repositories(&team).await?;
@@ -83,7 +88,10 @@ pub(crate) mod wizard {
 
             self.save_migration_file(&actions)?;
 
-            Ok(())
+            Ok(WizardResult {
+                actions,
+                migration_file_path: self.output.clone(),
+            })
         }
 
         async fn move_env_vars(&self, repository: &Repository) -> anyhow::Result<Option<Action>> {
