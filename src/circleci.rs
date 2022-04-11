@@ -652,11 +652,11 @@ mod config {
 
             raw.workflows
                 .into_values()
+                .filter(|w| matches!(w, raw::WorkflowEntry::Workflow(_)))
                 .flat_map(|w| match w {
-                    raw::WorkflowEntry::Workflow(w) => Some(w.jobs),
-                    _ => None,
+                    raw::WorkflowEntry::Workflow(w) => w.jobs,
+                    _ => unreachable!(),
                 })
-                .flatten()
                 .flat_map(|j| j.into_values())
                 .flat_map(|j| j.context)
                 .for_each(|c| match c {
