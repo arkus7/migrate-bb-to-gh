@@ -378,6 +378,7 @@ pub(crate) mod wizard {
         fn parse_config(&self, config: &FileContents) -> anyhow::Result<super::config::Config> {
             let config = base64::decode_config(config.content.replace("\n", ""), base64::STANDARD)?;
             let config = std::str::from_utf8(&config)?;
+
             let config = super::config::Config::from_str(&config)?;
 
             Ok(config)
@@ -475,9 +476,20 @@ mod api {
             project_slug = project_slug,
         );
 
-        let res: EnvVarsResponse = send_get_request(url).await?;
+        let res: Result<EnvVarsResponse, reqwest::Error> = send_get_request(url).await;
+        let items = match res {
+            Ok(res) => res.items,
+            Err(err) => {
+                if let Some(code) = err.status() {
+                    if code == 404 {
+                        return Ok(vec![]);
+                    }
+                }
+                return Err(anyhow::anyhow!("Failed to get env vars: {}", err));
+            }
+        };
 
-        Ok(res.items)
+        Ok(items)
     }
 
     pub async fn get_contexts(vcs: Vcs) -> anyhow::Result<Vec<Context>> {
