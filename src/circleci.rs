@@ -36,7 +36,6 @@ pub(crate) mod wizard {
             for repository in repositories {
                 println!("Configuring {} repository...", &repository.full_name);
                 let config = self.check_config_exists(&repository).await?;
-                dbg!(&config);
                 if let None = config {
                     println!("No config found for {}, skipping...", repository.full_name);
                     continue;
