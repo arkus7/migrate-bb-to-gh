@@ -577,7 +577,10 @@ mod config {
 
             raw.workflows
                 .into_values()
-                .map(|w| w.jobs)
+                .flat_map(|w| match w {
+                    raw::WorkflowEntry::Workflow(w) => Some(w.jobs),
+                    _ => None,
+                })
                 .flatten()
                 .map(|j| j.into_values())
                 .flatten()
@@ -604,7 +607,14 @@ mod config {
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         pub(crate) struct RawConfig {
-            pub workflows: BTreeMap<String, Workflow>,
+            pub workflows: BTreeMap<String, WorkflowEntry>,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        #[serde(untagged)]
+        pub(crate) enum WorkflowEntry {
+            Workflow(Workflow),
+            Other(serde_yaml::Value),
         }
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
