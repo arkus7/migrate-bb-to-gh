@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 mod bitbucket;
+mod circleci;
 mod github;
 mod migrator;
 mod spinner;
@@ -10,9 +11,12 @@ use clap::{Parser, Subcommand};
 
 use crate::wizard::Wizard;
 
+const BIN_NAME: &str = "migrate-bb-to-gh";
+
 /// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
+#[clap(propagate_version = true)]
 struct Cli {
     #[clap(subcommand)]
     command: Commands,
@@ -37,6 +41,34 @@ enum Commands {
         #[clap(parse(from_os_str), value_name = "MIGRATION_FILE")]
         migration_file: PathBuf,
     },
+    /// Tool for migrating CircleCI configuration
+    #[clap(name = "circleci")]
+    CircleCi {
+        #[clap(subcommand)]
+        command: CircleCiCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum CircleCiCommands {
+    /// Guides you through migration process, generating migration file for "migrate" subcommand
+    Wizard {
+        #[clap(
+            short,
+            long,
+            parse(from_os_str),
+            value_name = "OUTPUT_FILE",
+            default_value = "ci-migration.json",
+            value_hint = clap::ValueHint::FilePath
+        )]
+        output: PathBuf,
+    },
+    /// Migrates CircleCI configuration to GitHub organization on CircleCI
+    Migrate {
+        /// Path to migration file
+        #[clap(parse(from_os_str), value_name = "MIGRATION_FILE")]
+        migration_file: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -53,10 +85,24 @@ async fn main() -> Result<(), anyhow::Error> {
                 std::fs::canonicalize(&res.migration_file_path)?
             );
             println!("{}", migrator::describe_actions(&res.actions));
+            println!(
+                "Run '{} migrate {}' to start migration process",
+                BIN_NAME,
+                output.display()
+            );
         }
         Commands::Migrate { migration_file } => {
             migrator::migrate(migration_file).await?;
         }
+        Commands::CircleCi { command } => match &command {
+            CircleCiCommands::Wizard { output } => {
+                circleci::wizard::Wizard::new(output).run().await?;
+                println!("CircleCi Wizard, {}", output.display());
+            }
+            CircleCiCommands::Migrate { migration_file } => {
+                println!("CircleCi Migrate, {}", migration_file.display());
+            }
+        },
     }
 
     Ok(())
