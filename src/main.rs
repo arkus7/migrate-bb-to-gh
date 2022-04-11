@@ -96,8 +96,17 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {
-                circleci::wizard::Wizard::new(output).run().await?;
-                println!("CircleCi Wizard, {}", output.display());
+                let res = circleci::wizard::Wizard::new(output).run().await?;
+                println!(
+                    "Migration file saved to {:?}",
+                    std::fs::canonicalize(&res.migration_file_path)?
+                );
+                println!("{}", circleci::migrate::describe_actions(&res.actions));
+                println!(
+                    "Run '{} circleci migrate {}' to start migration process",
+                    BIN_NAME,
+                    output.display()
+                );
             }
             CircleCiCommands::Migrate { migration_file } => {
                 println!("CircleCi Migrate, {}", migration_file.display());
