@@ -397,7 +397,7 @@ pub(crate) mod wizard {
                 .position(|branch| branch == &repo.default_branch)
                 .unwrap_or(0);
 
-            let branch_selection = Select::with_theme(&self.theme)
+            let branch_selection = FuzzySelect::with_theme(&self.theme)
                 .with_prompt("Select branch to build")
                 .items(&branches)
                 .default(default_idx)
