@@ -10,7 +10,10 @@ pub(crate) mod wizard {
     use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 
     use crate::{
-        circleci::{api::Context, migrate::Action},
+        circleci::{
+            api::Context,
+            migrate::{Action, EnvVar},
+        },
         github::{self, FileContents, Repository, Team},
         spinner,
     };
@@ -331,12 +334,12 @@ pub(crate) mod wizard {
                     let variables = variables
                         .into_iter()
                         .map(|variable| {
-                            let variable = variable.variable;
+                            let name = variable.variable;
                             let value = Input::with_theme(&self.theme)
-                                .with_prompt(format!("Input value for '{}' variable:", variable))
+                                .with_prompt(format!("Input value for '{}' variable:", name))
                                 .interact()
                                 .expect("invalid input for variable value");
-                            (variable, value)
+                            EnvVar { name, value }
                         })
                         .collect::<Vec<_>>();
                     actions.push(Action::CreateContext {
@@ -577,12 +580,18 @@ pub(crate) mod migrate {
         },
         CreateContext {
             name: String,
-            variables: Vec<(String, String)>,
+            variables: Vec<EnvVar>,
         },
         StartPipeline {
             repository_name: String,
             branch: String,
         },
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct EnvVar {
+        pub name: String,
+        pub value: String,
     }
 
     impl Action {
@@ -602,7 +611,7 @@ pub(crate) mod migrate {
                 variables.len(),
                 variables
                     .iter()
-                    .map(|(k, v)| format!("  {}={}", k, v))
+                    .map(|e| format!("  {}={}", e.name, e.value))
                     .collect::<Vec<_>>()
                     .join(",\n"),
             ),
