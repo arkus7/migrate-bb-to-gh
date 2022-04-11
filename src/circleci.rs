@@ -1,10 +1,13 @@
 pub(crate) mod wizard {
-    use std::{any, collections::HashSet, fs::File, hash::Hash, path::PathBuf, str::FromStr};
+    use std::{
+        collections::HashSet,
+        fs::File,
+        path::{Path, PathBuf},
+        str::FromStr,
+    };
 
     use anyhow::{anyhow, Ok};
-    use dialoguer::{
-        theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Password, Select,
-    };
+    use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 
     use crate::{
         circleci::migrate::Action,
@@ -20,9 +23,9 @@ pub(crate) mod wizard {
     }
 
     impl Wizard {
-        pub fn new(output: &PathBuf) -> Self {
+        pub fn new(output: &Path) -> Self {
             Self {
-                output: output.clone(),
+                output: output.to_path_buf(),
                 theme: ColorfulTheme::default(),
             }
         }
@@ -36,7 +39,7 @@ pub(crate) mod wizard {
             for repository in repositories {
                 println!("Configuring {} repository...", &repository.full_name);
                 let config = self.check_config_exists(&repository).await?;
-                if let None = config {
+                if config.is_none() {
                     println!("No config found for {}, skipping...", repository.full_name);
                     continue;
                 }
@@ -168,7 +171,7 @@ pub(crate) mod wizard {
             } else {
                 let selection = MultiSelect::with_theme(&self.theme)
                     .with_prompt("Select environment variables to move")
-                    .items(&env_vars)
+                    .items(env_vars)
                     .interact()?;
                 if selection.is_empty() {
                     return Err(anyhow!(
@@ -221,10 +224,7 @@ pub(crate) mod wizard {
 
             let migrated_contexts = actions
                 .iter()
-                .filter(|action| match action {
-                    Action::CreateContext { .. } => true,
-                    _ => false,
-                })
+                .filter(|action| matches!(action, Action::CreateContext { .. }))
                 .map(|action| match action {
                     Action::CreateContext { name, .. } => name.clone(),
                     _ => unreachable!(),
@@ -355,7 +355,7 @@ pub(crate) mod wizard {
 
             let branches = branches
                 .into_iter()
-                .map(|branch| branch.name.clone())
+                .map(|branch| branch.name)
                 .collect::<Vec<_>>();
 
             let default_idx = branches
@@ -376,10 +376,10 @@ pub(crate) mod wizard {
         }
 
         fn parse_config(&self, config: &FileContents) -> anyhow::Result<super::config::Config> {
-            let config = base64::decode_config(config.content.replace("\n", ""), base64::STANDARD)?;
+            let config = base64::decode_config(config.content.replace('\n', ""), base64::STANDARD)?;
             let config = std::str::from_utf8(&config)?;
 
-            let config = super::config::Config::from_str(&config)?;
+            let config = super::config::Config::from_str(config)?;
 
             Ok(config)
         }
@@ -553,10 +553,7 @@ mod migrate {
 }
 
 mod config {
-    use std::{
-        collections::{HashMap, HashSet},
-        str::FromStr,
-    };
+    use std::{collections::HashSet, str::FromStr};
 
     use serde::{Deserialize, Serialize};
 
@@ -582,8 +579,7 @@ mod config {
                     _ => None,
                 })
                 .flatten()
-                .map(|j| j.into_values())
-                .flatten()
+                .flat_map(|j| j.into_values())
                 .flat_map(|j| j.context)
                 .for_each(|c| match c {
                     Context::String(ctx) => {
