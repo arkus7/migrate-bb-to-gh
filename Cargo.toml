@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.56"
+base64 = "0.13.0"
 clap = { version = "3.1.8", features = ["derive"] }
 dialoguer = { version = "0.10.0", features = ["fuzzy-select"] }
 indicatif = "0.17.0-rc.10"
@@ -15,5 +16,6 @@ regex = "1.5.5"
 reqwest = { version = "0.11.10", features = ["json"] }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
+serde_yaml = "0.8.23"
 tempdir = "0.3.7"
 tokio = { version = "1.17.0", features = ["full"] }
