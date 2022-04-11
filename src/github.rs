@@ -71,6 +71,7 @@ pub struct Repository {
     pub name: String,
     pub full_name: String,
     pub ssh_url: String,
+    pub default_branch: String,
 }
 
 impl Display for Repository {
@@ -84,6 +85,11 @@ pub struct FileContents {
     pub name: String,
     pub path: String,
     pub content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Branch {
+    pub name: String,
 }
 
 pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
@@ -162,6 +168,17 @@ pub async fn get_team_repositories(team_slug: &str) -> anyhow::Result<Vec<Reposi
     );
 
     let res: Vec<Repository> = send_get_request(url).await?;
+
+    Ok(res)
+}
+
+pub async fn get_repo_branches(full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
+    let url = format!(
+        "https://api.github.com/repos/{repo_name}/branches?per_page=100",
+        repo_name = full_repo_name
+    );
+
+    let res: Vec<Branch> = send_get_request(url).await?;
 
     Ok(res)
 }
