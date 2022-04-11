@@ -10,7 +10,7 @@ pub(crate) mod wizard {
     use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 
     use crate::{
-        circleci::migrate::Action,
+        circleci::{api::Context, migrate::Action},
         github::{self, FileContents, Repository, Team},
         spinner,
     };
@@ -344,7 +344,7 @@ pub(crate) mod wizard {
                 .interact()?;
 
             if use_default_branch {
-                return Ok(Some(Action::RunFirstBuild {
+                return Ok(Some(Action::StartPipeline {
                     repository_name: repo.full_name.clone(),
                     branch: repo.default_branch.clone(),
                 }));
@@ -370,7 +370,7 @@ pub(crate) mod wizard {
                 .default(default_idx)
                 .interact()?;
 
-            Ok(Some(Action::RunFirstBuild {
+            Ok(Some(Action::StartPipeline {
                 repository_name: repo.full_name.clone(),
                 branch: branches[branch_selection].clone(),
             }))
@@ -532,7 +532,7 @@ mod api {
     }
 }
 
-mod migrate {
+pub(crate) mod migrate {
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -546,10 +546,54 @@ mod migrate {
             name: String,
             variables: Vec<(String, String)>,
         },
-        RunFirstBuild {
+        StartPipeline {
             repository_name: String,
             branch: String,
         },
+    }
+
+    impl Action {
+        pub fn describe(&self) -> String {
+            match self {
+            Action::MoveEnvironmentalVariables {
+                repository_name,
+                env_vars,
+            } => format!(
+                "Move environmental variables of '{}' project from Bitbucket org to Github org\n  Envs: {}",
+                repository_name,
+                env_vars.join(", ")
+            ),
+            Action::CreateContext { name, variables } => format!(
+                "Create context named '{}' with {} variables:\n{}",
+                name,
+                variables.len(),
+                variables
+                    .iter()
+                    .map(|(k, v)| format!("  {}={}", k, v))
+                    .collect::<Vec<_>>()
+                    .join(",\n"),
+            ),
+            Action::StartPipeline { repository_name, branch } => format!(
+                "Start pipeline for {} on branch {}",
+                repository_name,
+                branch,
+            ),
+        }
+        }
+    }
+
+    pub fn describe_actions(actions: &[Action]) -> String {
+        let actions_list = actions
+            .iter()
+            .enumerate()
+            .map(|(idx, action)| format!("{}. {}", idx + 1, action.describe()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "There are {} actions to be done during migration:\n{}",
+            actions.len(),
+            actions_list
+        )
     }
 }
 
