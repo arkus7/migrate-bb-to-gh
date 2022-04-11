@@ -7,7 +7,7 @@ pub(crate) mod wizard {
     };
 
     use anyhow::{anyhow, Ok};
-    use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Select};
+    use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
 
     use crate::{
         circleci::{
