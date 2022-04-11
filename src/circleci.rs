@@ -35,6 +35,18 @@ pub(crate) mod wizard {
             let team = self.select_team().await?;
             let repositories = self.select_repositories(&team).await?;
 
+            let spinner = spinner::create_spinner("Fetching GitHub contexts from CircleCI...");
+            let gh_contexts = api::get_contexts(api::Vcs::GitHub).await?;
+            spinner.finish_with_message(format!(
+                "Found {} contexts defined in GitHub org",
+                gh_contexts.len()
+            ));
+            let spinner = spinner::create_spinner("Fetching Bitbucket contexts from CircleCI...");
+            let bb_contexts = api::get_contexts(api::Vcs::Bitbucket).await?;
+            spinner.finish_with_message(format!(
+                "Found {} contexts defined in Bitbucket org",
+                bb_contexts.len()
+            ));
             let mut actions: Vec<Action> = vec![];
             for repository in repositories {
                 println!("Configuring {} repository...", &repository.full_name);
@@ -50,8 +62,18 @@ pub(crate) mod wizard {
                     actions.push(move_envs_action);
                 }
 
-                let create_contexts_actions =
-                    self.create_contexts_actions(&config, &actions).await?;
+                let defined_contexts: HashSet<_> = actions
+                    .iter()
+                    .filter(|a| matches!(a, Action::CreateContext { .. }))
+                    .map(|a| match a {
+                        Action::CreateContext { name, .. } => name.to_owned(),
+                        _ => unreachable!(),
+                    })
+                    .collect();
+
+                let create_contexts_actions = self
+                    .create_contexts_actions(&config, &gh_contexts, &bb_contexts, &defined_contexts)
+                    .await?;
                 actions.extend(create_contexts_actions);
 
                 if let Some(start_build_action) = self.start_build(&repository).await? {
@@ -190,7 +212,9 @@ pub(crate) mod wizard {
         async fn create_contexts_actions(
             &self,
             config: &Config,
-            actions: &[Action],
+            gh_contexts: &[Context],
+            bb_contexts: &[Context],
+            defined_contexts: &HashSet<String>,
         ) -> anyhow::Result<Vec<Action>> {
             if config.contexts.is_empty() {
                 return Ok(vec![]);
@@ -204,14 +228,7 @@ pub(crate) mod wizard {
                 println!(" - {}", context);
             }
 
-            let spinner = spinner::create_spinner("Fetching GitHub contexts from CircleCI...");
-            let exisiting_contexts = api::get_contexts(api::Vcs::GitHub).await?;
-            spinner.finish_with_message(format!(
-                "Found {} contexts defined in GitHub org",
-                exisiting_contexts.len()
-            ));
-
-            let existing_names = exisiting_contexts
+            let existing_names = gh_contexts
                 .iter()
                 .map(|context| context.name.clone())
                 .collect::<HashSet<_>>();
@@ -222,17 +239,8 @@ pub(crate) mod wizard {
                 .cloned()
                 .collect::<HashSet<_>>();
 
-            let migrated_contexts = actions
-                .iter()
-                .filter(|action| matches!(action, Action::CreateContext { .. }))
-                .map(|action| match action {
-                    Action::CreateContext { name, .. } => name.clone(),
-                    _ => unreachable!(),
-                })
-                .collect::<HashSet<_>>();
-
             let diff = diff
-                .difference(&migrated_contexts)
+                .difference(defined_contexts)
                 .cloned()
                 .collect::<Vec<_>>();
 
@@ -274,17 +282,10 @@ pub(crate) mod wizard {
                     .collect());
             }
 
-            let spinner = spinner::create_spinner("Fetching Bitbucket contexts from CircleCI...");
-            let exisiting_contexts = api::get_contexts(api::Vcs::Bitbucket).await?;
-            spinner.finish_with_message(format!(
-                "Found {} contexts in Bitbucket",
-                exisiting_contexts.len()
-            ));
-
             let mut actions: Vec<Action> = vec![];
 
             for context in contexts {
-                if let Some(bb_context) = exisiting_contexts.iter().find(|c| c.name == context) {
+                if let Some(bb_context) = bb_contexts.iter().find(|c| c.name == context) {
                     let spinner =
                         spinner::create_spinner(format!("Fetching {} context variables", &context));
                     let variables = api::get_context_variables(&bb_context.id).await?;
