@@ -532,7 +532,7 @@ mod api {
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     struct UpdateContextVariableBody {
-      value: String,
+        value: String,
     }
 
     pub async fn get_env_vars(vcs: Vcs, full_repo_name: &str) -> anyhow::Result<Vec<EnvVar>> {
@@ -623,18 +623,23 @@ mod api {
         Ok(())
     }
 
-    pub async fn add_context_variable(context_id: &str, name: &str, value: &str) -> Result<(), anyhow::Error> {
-      let url = format!("https://circleci.com/api/v2/context/{context_id}/environment-variable/{env_var_name}",
-        context_id = context_id,
-        env_var_name = name
-      );
-      let body = UpdateContextVariableBody {
-        value: value.to_string(),
-      };
+    pub async fn add_context_variable(
+        context_id: &str,
+        name: &str,
+        value: &str,
+    ) -> Result<(), anyhow::Error> {
+        let url = format!(
+            "https://circleci.com/api/v2/context/{context_id}/environment-variable/{env_var_name}",
+            context_id = context_id,
+            env_var_name = name
+        );
+        let body = UpdateContextVariableBody {
+            value: value.to_string(),
+        };
 
-      let _ = send_put_request(url, Some(body)).await?;
-      Ok(())
-  }
+        let _ = send_put_request(url, Some(body)).await?;
+        Ok(())
+    }
 
     async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(
         url: U,
@@ -671,22 +676,22 @@ mod api {
     }
 
     async fn send_put_request<T: DeserializeOwned, U: IntoUrl, B: Serialize>(
-      url: U,
-      body: Option<B>,
-  ) -> Result<T, reqwest::Error> {
-      let client = reqwest::Client::new();
-      let res = client
-          .put(url)
-          .header(AUTH_HEADER, TOKEN)
-          .json(&body)
-          .send()
-          .await?
-          .error_for_status()?
-          .json::<T>()
-          .await?;
+        url: U,
+        body: Option<B>,
+    ) -> Result<T, reqwest::Error> {
+        let client = reqwest::Client::new();
+        let res = client
+            .put(url)
+            .header(AUTH_HEADER, TOKEN)
+            .json(&body)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<T>()
+            .await?;
 
-      Ok(res)
-  }
+        Ok(res)
+    }
 }
 
 pub(crate) mod migrate {
@@ -718,30 +723,30 @@ pub(crate) mod migrate {
     impl Action {
         pub fn describe(&self) -> String {
             match self {
-            Action::MoveEnvironmentalVariables {
-                repository_name,
-                env_vars,
-            } => format!(
-                "Move environmental variables of '{}' project from Bitbucket org to Github org\n  Envs: {}",
-                repository_name,
-                env_vars.join(", ")
-            ),
-            Action::CreateContext { name, variables } => format!(
-                "Create context named '{}' with {} variables:\n{}",
-                name,
-                variables.len(),
-                variables
-                    .iter()
-                    .map(|e| format!("  {}={}", e.name, e.value))
-                    .collect::<Vec<_>>()
-                    .join(",\n"),
-            ),
-            Action::StartPipeline { repository_name, branch } => format!(
-                "Start pipeline for {} on branch {}",
-                repository_name,
-                branch,
-            ),
-        }
+                Action::MoveEnvironmentalVariables {
+                    repository_name,
+                    env_vars,
+                } => format!(
+                    "Move environmental variables of '{}' project from Bitbucket org to Github org\n  Envs: {}",
+                    repository_name,
+                    env_vars.join(", ")
+                ),
+                Action::CreateContext { name, variables } => format!(
+                    "Create context named '{}' with {} variables:\n{}",
+                    name,
+                    variables.len(),
+                    variables
+                        .iter()
+                        .map(|e| format!("  {}={}", e.name, e.value))
+                        .collect::<Vec<_>>()
+                        .join(",\n"),
+                ),
+                Action::StartPipeline { repository_name, branch } => format!(
+                    "Start pipeline for {} on branch {}",
+                    repository_name,
+                    branch,
+                ),
+            }
         }
     }
 
