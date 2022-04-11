@@ -52,6 +52,7 @@ pub(crate) mod wizard {
                 "Found {} contexts defined in Bitbucket org",
                 bb_contexts.len()
             ));
+
             let mut actions: Vec<Action> = vec![];
             for repository in repositories {
                 println!();
@@ -225,9 +226,7 @@ pub(crate) mod wizard {
                     .items(env_vars)
                     .interact()?;
                 if selection.is_empty() {
-                    return Err(anyhow!(
-                        "At least one environment variable must be selected"
-                    ));
+                    println!("⚠️No environment variables selected");
                 }
                 let env_vars: Vec<String> = selection
                     .into_iter()
