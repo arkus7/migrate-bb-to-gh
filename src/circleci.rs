@@ -506,6 +506,35 @@ mod api {
         pub context_id: String,
     }
 
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct ExportEnvironmentBody {
+        /// List of URLs to the projects where env variables should be exported to
+        projects: Vec<String>,
+        #[serde(rename = "kebab-case")]
+        env_vars: Vec<String>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct StartPipelineBody {
+        branch: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct CreateContextBody {
+        name: String,
+        owner: ContextOwnerBody,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct ContextOwnerBody {
+        id: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct UpdateContextVariableBody {
+      value: String,
+    }
+
     pub async fn get_env_vars(vcs: Vcs, full_repo_name: &str) -> anyhow::Result<Vec<EnvVar>> {
         let project_slug = format!("{}/{}", vcs.slug_prefix(), full_repo_name);
         let url = format!(
@@ -551,6 +580,62 @@ mod api {
         Ok(res.items)
     }
 
+    pub async fn export_environment(
+        repo_name: &str,
+        env_vars: &[String],
+    ) -> Result<(), anyhow::Error> {
+        let url = format!(
+            "https://circleci.com/api/v1.1/project/bitbucket/{repo_name}/info/export-environment",
+            repo_name = repo_name
+        );
+        let body = ExportEnvironmentBody {
+            projects: vec![format!("https://github.com/{}", repo_name)],
+            env_vars: env_vars.to_vec(),
+        };
+
+        let _ = send_post_request(url, Some(body)).await?;
+        Ok(())
+    }
+
+    pub async fn start_pipeline(repo_name: &str, branch: &str) -> Result<(), anyhow::Error> {
+        let url = format!(
+            "https://circleci.com/api/v1.1/project/gh/{repo_name}/follow",
+            repo_name = repo_name
+        );
+        let body = StartPipelineBody {
+            branch: branch.to_string(),
+        };
+
+        let _ = send_post_request(url, Some(body)).await?;
+        Ok(())
+    }
+
+    pub async fn create_context(name: &str, vcs: Vcs) -> Result<(), anyhow::Error> {
+        let url = "https://circleci.com/api/v2/context";
+        let body = CreateContextBody {
+            name: name.to_string(),
+            owner: ContextOwnerBody {
+                id: vcs.org_id().to_string(),
+            },
+        };
+
+        let _ = send_post_request(url, Some(body)).await?;
+        Ok(())
+    }
+
+    pub async fn add_context_variable(context_id: &str, name: &str, value: &str) -> Result<(), anyhow::Error> {
+      let url = format!("https://circleci.com/api/v2/context/{context_id}/environment-variable/{env_var_name}",
+        context_id = context_id,
+        env_var_name = name
+      );
+      let body = UpdateContextVariableBody {
+        value: value.to_string(),
+      };
+
+      let _ = send_put_request(url, Some(body)).await?;
+      Ok(())
+  }
+
     async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(
         url: U,
     ) -> Result<T, reqwest::Error> {
@@ -566,6 +651,42 @@ mod api {
 
         Ok(res)
     }
+
+    async fn send_post_request<T: DeserializeOwned, U: IntoUrl, B: Serialize>(
+        url: U,
+        body: Option<B>,
+    ) -> Result<T, reqwest::Error> {
+        let client = reqwest::Client::new();
+        let res = client
+            .post(url)
+            .header(AUTH_HEADER, TOKEN)
+            .json(&body)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<T>()
+            .await?;
+
+        Ok(res)
+    }
+
+    async fn send_put_request<T: DeserializeOwned, U: IntoUrl, B: Serialize>(
+      url: U,
+      body: Option<B>,
+  ) -> Result<T, reqwest::Error> {
+      let client = reqwest::Client::new();
+      let res = client
+          .put(url)
+          .header(AUTH_HEADER, TOKEN)
+          .json(&body)
+          .send()
+          .await?
+          .error_for_status()?
+          .json::<T>()
+          .await?;
+
+      Ok(res)
+  }
 }
 
 pub(crate) mod migrate {
