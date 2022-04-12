@@ -695,7 +695,15 @@ mod api {
 }
 
 pub(crate) mod migrate {
+    use std::{path::Path, fs::File};
+    use anyhow::anyhow;
+
+    use dialoguer::Confirm;
     use serde::{Deserialize, Serialize};
+
+    use crate::spinner;
+
+    use super::api;
 
     #[derive(Serialize, Deserialize, Debug)]
     #[serde(rename_all = "snake_case")]
@@ -748,6 +756,58 @@ pub(crate) mod migrate {
                 ),
             }
         }
+
+        pub async fn run(&self) -> anyhow::Result<()> {
+          match self {
+            Action::CreateContext { name, variables } => {
+              let spinner = spinner::create_spinner(format!("Creating '{}' context", name));
+              let ctx = api::create_context(name, api::Vcs::GitHub).await?;
+              spinner.finish_with_message(format!("Created context '{}' (id: {})", &ctx.name, &ctx.id));
+
+              for var in variables {
+                let spinner = spinner::create_spinner(format!("Adding '{}' variable to '{}' context", &var.name, &name));
+                let _ = api::add_context_variable(&ctx.id, &var.name, &var.value).await?;
+                spinner.finish_with_message(format!("Added '{}' variable", &var.name));
+              }
+
+              Ok(())
+            },
+            Action::MoveEnvironmentalVariables { repository_name, env_vars } => {
+              let spinner = spinner::create_spinner(format!("Moving {} environmental variables of {} project from Bitbucket org to Github org", env_vars.len(), &repository_name));
+              let _ = api::export_environment(repository_name, env_vars).await?;
+              spinner.finish_with_message(format!("Moved {} environmental variables of {} project from Bitbucket org to Github org", env_vars.len(), &repository_name));
+              Ok(())
+            },
+            Action::StartPipeline { repository_name, branch } => {
+              let spinner = spinner::create_spinner(format!("Starting pipeline for {} on branch {}", &repository_name, &branch));
+              let _ = api::start_pipeline(repository_name, branch).await?;
+              spinner.finish_with_message(format!("Started pipeline for {} on branch {}", &repository_name, &branch));
+              Ok(())
+            },
+          }
+        }
+    }
+
+    pub async fn migrate(migration_file: &Path) -> anyhow::Result<()> {
+        let file = File::open(migration_file)?;
+        let actions: Vec<Action> = serde_json::from_reader(file)
+            .map_err(|e| anyhow!("Error when parsing {:?} file: {}", migration_file, e))?;
+
+        println!("{}", describe_actions(&actions));
+
+        let confirmed = Confirm::new()
+            .with_prompt("Are you sure you want to migrate?")
+            .interact()?;
+
+        if !confirmed {
+            return Err(anyhow!("Migration canceled"));
+        }
+
+        for action in actions {
+            let _ = action.run().await?;
+        }
+
+        Ok(())
     }
 
     pub fn describe_actions(actions: &[Action]) -> String {
