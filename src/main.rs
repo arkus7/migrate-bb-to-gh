@@ -109,7 +109,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 );
             }
             CircleCiCommands::Migrate { migration_file } => {
-                println!("CircleCi Migrate, {}", migration_file.display());
+                circleci::migrate::migrate(migration_file).await?;
             }
         },
     }
