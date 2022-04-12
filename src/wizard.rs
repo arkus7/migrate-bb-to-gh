@@ -1,4 +1,4 @@
-use std::{fs::File, path::PathBuf, collections::HashSet};
+use std::{collections::HashSet, fs::File, path::PathBuf};
 
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 
@@ -136,7 +136,11 @@ impl Wizard {
         let spinner =
             spinner::create_spinner(format!("Fetching repositories from {} project", project));
         let repositories = bitbucket::get_repositories(project.get_key()).await?;
-        spinner.finish_with_message(format!("Fetched {} repositories from {} project!", repositories.len(), project));
+        spinner.finish_with_message(format!(
+            "Fetched {} repositories from {} project!",
+            repositories.len(),
+            project
+        ));
         let selection = MultiSelect::with_theme(&self.theme)
             .with_prompt(format!("Select repositories from {} project", project))
             .items(&repositories)
@@ -152,7 +156,10 @@ impl Wizard {
 
         let spinner = spinner::create_spinner("Fetching existing repositories from GitHub...");
         let github_repositories = github::get_repositories().await?;
-        spinner.finish_with_message(format!("Fetched {} existing repositories from GitHub!", github_repositories.len()));
+        spinner.finish_with_message(format!(
+            "Fetched {} existing repositories from GitHub!",
+            github_repositories.len()
+        ));
 
         let selected_repo_names = repositories
             .iter()
@@ -164,9 +171,15 @@ impl Wizard {
             .map(|r| r.full_name.to_owned())
             .collect::<HashSet<_>>();
 
-        let intersection = selected_repo_names.intersection(&existing_repo_names).collect::<Vec<_>>();
+        let intersection = selected_repo_names
+            .intersection(&existing_repo_names)
+            .collect::<Vec<_>>();
         let repositories = if !intersection.is_empty() {
-            let intersection_names = intersection.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", ");
+            let intersection_names = intersection
+                .iter()
+                .map(|n| n.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
             let msg = format!("The following repositories already exist in GitHub: {}\nDo you want to overwrite them?", intersection_names);
             let overwrite = Select::with_theme(&self.theme)
                 .with_prompt(msg)
@@ -175,14 +188,16 @@ impl Wizard {
                 .default(1)
                 .interact()?;
             match overwrite {
-              0 => repositories,
-              1 => {
-                repositories.iter().filter(|r| !intersection.contains(&&r.full_name)).cloned().collect()
-              },
-              _ => unreachable!(),
+                0 => repositories,
+                1 => repositories
+                    .iter()
+                    .filter(|r| !intersection.contains(&&r.full_name))
+                    .cloned()
+                    .collect(),
+                _ => unreachable!(),
             }
         } else {
-          repositories
+            repositories
         };
 
         Ok(repositories)

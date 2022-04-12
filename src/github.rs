@@ -1,4 +1,4 @@
-use std::{fmt::Display, any};
+use std::fmt::Display;
 
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -195,14 +195,14 @@ pub async fn get_team_repositories(team_slug: &str) -> anyhow::Result<Vec<Reposi
 }
 
 pub async fn get_repositories() -> anyhow::Result<Vec<Repository>> {
-  let url = format!(
-      "https://api.github.com/orgs/{org_name}/repos?per_page=500",
-      org_name = ORGANIZATION_NAME,
-  );
+    let url = format!(
+        "https://api.github.com/orgs/{org_name}/repos?per_page=500",
+        org_name = ORGANIZATION_NAME,
+    );
 
-  let res: Vec<Repository> = send_get_request(url).await?;
+    let res: Vec<Repository> = send_get_request(url).await?;
 
-  Ok(res)
+    Ok(res)
 }
 
 pub async fn get_repo_branches(full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
