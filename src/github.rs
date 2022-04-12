@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, any};
 
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -155,7 +155,29 @@ pub async fn create_repository(name: &str) -> Result<Repository, anyhow::Error> 
         visibility: RepositoryVisibility::Private,
     };
 
-    let res: Repository = send_post_request(url, Some(body)).await?;
+    let res: Result<Repository, reqwest::Error> = send_post_request(url, Some(body)).await;
+
+    match res {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            if e.status() == Some(reqwest::StatusCode::UNPROCESSABLE_ENTITY) {
+                let repo = get_repository(name).await?;
+                return Ok(repo);
+            } else {
+                return Err(anyhow::anyhow!("Failed to create repository: {}", e));
+            }
+        }
+    }
+}
+
+async fn get_repository(name: &str) -> Result<Repository, anyhow::Error> {
+    let url = format!(
+        "https://api.github.com/repos/{org_name}/{repo_name}",
+        org_name = ORGANIZATION_NAME,
+        repo_name = name
+    );
+
+    let res: Repository = send_get_request(url).await?;
 
     Ok(res)
 }
