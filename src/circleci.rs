@@ -510,7 +510,7 @@ mod api {
     struct ExportEnvironmentBody {
         /// List of URLs to the projects where env variables should be exported to
         projects: Vec<String>,
-        #[serde(rename = "kebab-case")]
+        #[serde(rename = "env-vars")]
         env_vars: Vec<String>,
     }
 
@@ -593,7 +593,7 @@ mod api {
             env_vars: env_vars.to_vec(),
         };
 
-        let _ = send_post_request(url, Some(body)).await?;
+        let _: serde_json::Value = send_post_request(url, Some(body)).await?;
         Ok(())
     }
 
@@ -606,11 +606,11 @@ mod api {
             branch: branch.to_string(),
         };
 
-        let _ = send_post_request(url, Some(body)).await?;
+        let _: serde_json::Value = send_post_request(url, Some(body)).await?;
         Ok(())
     }
 
-    pub async fn create_context(name: &str, vcs: Vcs) -> Result<(), anyhow::Error> {
+    pub async fn create_context(name: &str, vcs: Vcs) -> Result<Context, anyhow::Error> {
         let url = "https://circleci.com/api/v2/context";
         let body = CreateContextBody {
             name: name.to_string(),
@@ -619,15 +619,15 @@ mod api {
             },
         };
 
-        let _ = send_post_request(url, Some(body)).await?;
-        Ok(())
+        let ctx = send_post_request(url, Some(body)).await?;
+        Ok(ctx)
     }
 
     pub async fn add_context_variable(
         context_id: &str,
         name: &str,
         value: &str,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<ContextVariable, anyhow::Error> {
         let url = format!(
             "https://circleci.com/api/v2/context/{context_id}/environment-variable/{env_var_name}",
             context_id = context_id,
@@ -637,8 +637,8 @@ mod api {
             value: value.to_string(),
         };
 
-        let _ = send_put_request(url, Some(body)).await?;
-        Ok(())
+        let var = send_put_request(url, Some(body)).await?;
+        Ok(var)
     }
 
     async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(
