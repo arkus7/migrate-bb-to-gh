@@ -206,14 +206,29 @@ pub async fn get_repositories() -> anyhow::Result<Vec<Repository>> {
 }
 
 pub async fn get_repo_branches(full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
-    let url = format!(
-        "https://api.github.com/repos/{repo_name}/branches?per_page=100",
-        repo_name = full_repo_name
+    let url_factory = |page: u32| format!(
+        "https://api.github.com/repos/{repo_name}/branches?per_page=100&page={page}",
+        repo_name = full_repo_name,
+        page = &page
     );
 
-    let res: Vec<Branch> = send_get_request(url).await?;
+    let mut branches = vec![];
+    let mut page = 1;
 
-    Ok(res)
+    loop {
+      let url = url_factory(page);
+      let res: Vec<Branch> = send_get_request(url).await?;
+
+      if res.is_empty() {
+        break;
+      }
+
+      branches.extend(res);
+      page += 1;
+    }
+
+
+    Ok(branches)
 }
 
 pub async fn get_file_contents(full_repo_name: &str, path: &str) -> anyhow::Result<FileContents> {
