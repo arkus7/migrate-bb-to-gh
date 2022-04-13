@@ -93,7 +93,7 @@ impl Wizard {
                 spinner.finish_with_message(format!("Fetched {} teams", teams.len()));
 
                 let team_selection = FuzzySelect::with_theme(&self.theme)
-                    .with_prompt("Select team")
+                    .with_prompt("Select team\n[You can fuzzy search here by typing]")
                     .items(&teams)
                     .default(0)
                     .interact()?;
@@ -211,7 +211,7 @@ impl Wizard {
         let projects = bitbucket::get_projects().await?;
         spinner.finish_with_message("Fetched!");
         let selection = FuzzySelect::with_theme(&self.theme)
-            .with_prompt("Select project")
+            .with_prompt("Select project\n[You can fuzzy search here by typing]")
             .items(&projects)
             .default(0)
             .interact()

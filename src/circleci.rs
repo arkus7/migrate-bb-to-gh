@@ -156,7 +156,7 @@ pub(crate) mod wizard {
                         project
                     ));
                     let selection = FuzzySelect::with_theme(&self.theme)
-                        .with_prompt(format!("Select repository from {} project", project))
+                        .with_prompt(format!("Select repository from {} project\n[You can fuzzy search here by typing]", project))
                         .items(&repositories)
                         .interact()?;
 
@@ -224,7 +224,7 @@ pub(crate) mod wizard {
             let projects = bitbucket::get_projects().await?;
             spinner.finish_with_message("Fetched!");
             let selection = FuzzySelect::with_theme(&self.theme)
-                .with_prompt("Select project")
+                .with_prompt("Select project\n[You can fuzzy search here by typing]")
                 .items(&projects)
                 .default(0)
                 .interact()
@@ -242,7 +242,7 @@ pub(crate) mod wizard {
             spinner.finish_with_message(format!("Fetched {} teams", teams.len()));
 
             let team_selection = FuzzySelect::with_theme(&self.theme)
-                .with_prompt("Select team")
+                .with_prompt("Select team\n[You can fuzzy search here by typing]")
                 .items(&teams)
                 .default(0)
                 .interact()?;
@@ -487,7 +487,7 @@ pub(crate) mod wizard {
                 .unwrap_or(0);
 
             let branch_selection = FuzzySelect::with_theme(&self.theme)
-                .with_prompt("Select branch to build")
+                .with_prompt("Select branch to build\n[You can fuzzy search here by typing]")
                 .items(&branches)
                 .default(default_idx)
                 .interact()?;
