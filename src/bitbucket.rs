@@ -97,11 +97,54 @@ pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
     Ok(projects)
 }
 
-pub async fn get_repositories(project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
+pub async fn get_project_repositories(project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
     let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = WORKSPACE_NAME, key = project_key, pagelen = 100);
     let res: RepositoriesResponse = send_get_request(url).await?;
 
     Ok(res.values)
+}
+
+pub async fn get_repositories() -> Result<Vec<Repository>, anyhow::Error> {
+    let url = format!(
+        "https://api.bitbucket.org/2.0/repositories/{workspace}?pagelen={pagelen}",
+        workspace = WORKSPACE_NAME,
+        pagelen = 100
+    );
+    let mut res: RepositoriesResponse = send_get_request(url).await?;
+
+    let mut repos = res.values.clone();
+    while res.next.is_some() {
+        res = send_get_request(res.next.unwrap()).await?;
+        repos.append(&mut res.values);
+    }
+
+    Ok(repos)
+}
+
+pub async fn get_repository(repo_name: &str) -> anyhow::Result<Option<Repository>> {
+    let url = format!(
+        "https://api.bitbucket.org/2.0/repositories/{repo_name}",
+        repo_name = repo_name
+    );
+    let res = send_get_request(url).await;
+
+    match res {
+        Ok(res) => Ok(Some(res)),
+        Err(err) => match err.status() {
+            Some(status) => {
+                if status.as_u16() == 404 {
+                    Ok(None)
+                } else {
+                    Err(anyhow::anyhow!(
+                        "Error: Repository {} was not found in Bitbucket account: {}",
+                        &repo_name,
+                        err
+                    ))
+                }
+            }
+            None => Err(anyhow::anyhow!("Unknown error: {}", err)),
+        },
+    }
 }
 
 async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, reqwest::Error> {
@@ -111,6 +154,7 @@ async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, 
         .basic_auth(USERNAME, Some(PASSWORD))
         .send()
         .await?
+        .error_for_status()?
         .json::<T>()
         .await?;
 
