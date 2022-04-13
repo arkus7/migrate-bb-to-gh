@@ -11,8 +11,6 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 use crate::wizard::Wizard;
 
-const BIN_NAME: &str = "migrate-bb-to-gh";
-
 /// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]

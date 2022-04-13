@@ -162,9 +162,9 @@ pub async fn create_repository(name: &str) -> Result<Repository, anyhow::Error> 
         Err(e) => {
             if e.status() == Some(reqwest::StatusCode::UNPROCESSABLE_ENTITY) {
                 let repo = get_repository(name).await?;
-                return Ok(repo);
+                Ok(repo)
             } else {
-                return Err(anyhow::anyhow!("Failed to create repository: {}", e));
+                Err(anyhow::anyhow!("Failed to create repository: {}", e))
             }
         }
     }

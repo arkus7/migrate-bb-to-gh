@@ -889,12 +889,9 @@ pub(crate) mod migrate {
                     env_vars,
                 } => {
                     let spinner = spinner::create_spinner(format!("Moving {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
-                    let _ = api::export_environment(
-                        &from_repository_name,
-                        &to_repository_name,
-                        env_vars,
-                    )
-                    .await?;
+                    let _ =
+                        api::export_environment(from_repository_name, to_repository_name, env_vars)
+                            .await?;
                     spinner.finish_with_message(format!("Moved {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
                     Ok(())
                 }
