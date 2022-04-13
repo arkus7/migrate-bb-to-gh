@@ -15,17 +15,17 @@ use anyhow::{anyhow, Context};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
-  version: String,
-  actions: Vec<Action>,
+    version: String,
+    actions: Vec<Action>,
 }
 
 impl Migration {
-  pub fn new(version: &str, actions: &[Action]) -> Self {
-    Self {
-      version: version.to_string(),
-      actions: actions.to_vec(),
+    pub fn new(version: &str, actions: &[Action]) -> Self {
+        Self {
+            version: version.to_string(),
+            actions: actions.to_vec(),
+        }
     }
-  }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

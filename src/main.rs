@@ -7,7 +7,7 @@ mod migrator;
 mod spinner;
 mod wizard;
 
-use clap::{Parser, Subcommand, CommandFactory};
+use clap::{CommandFactory, Parser, Subcommand};
 
 use crate::wizard::Wizard;
 
