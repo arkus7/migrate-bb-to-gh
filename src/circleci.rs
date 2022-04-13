@@ -12,7 +12,7 @@ pub(crate) mod wizard {
     use crate::{
         circleci::{
             api::Context,
-            migrate::{Action, EnvVar},
+            migrate::{Action, EnvVar, Migration},
         },
         github::{self, FileContents, Repository, Team},
         spinner,
@@ -23,6 +23,7 @@ pub(crate) mod wizard {
     pub struct Wizard {
         output: PathBuf,
         theme: ColorfulTheme,
+        version: String,
     }
 
     pub struct WizardResult {
@@ -31,10 +32,11 @@ pub(crate) mod wizard {
     }
 
     impl Wizard {
-        pub fn new(output: &Path) -> Self {
+        pub fn new(output: &Path, version: &str) -> Self {
             Self {
                 output: output.to_path_buf(),
                 theme: ColorfulTheme::default(),
+                version: version.to_owned(),
             }
         }
 
@@ -91,7 +93,9 @@ pub(crate) mod wizard {
                 }
             }
 
-            self.save_migration_file(&actions)?;
+            let migration = Migration::new(&self.version, &actions);
+
+            self.save_migration_file(&migration)?;
 
             Ok(WizardResult {
                 actions,
@@ -421,7 +425,7 @@ pub(crate) mod wizard {
             Ok(config)
         }
 
-        fn save_migration_file(&self, actions: &[Action]) -> Result<(), anyhow::Error> {
+        fn save_migration_file(&self, migration: &Migration) -> Result<(), anyhow::Error> {
             if self.output.exists() {
                 let overwrite = Confirm::with_theme(&self.theme)
                     .with_prompt("Migration file already exists. Overwrite?")
@@ -434,7 +438,7 @@ pub(crate) mod wizard {
             }
             let mut file = File::create(&self.output)?;
 
-            serde_json::to_writer(&mut file, actions)?;
+            serde_json::to_writer(&mut file, migration)?;
 
             Ok(())
         }
@@ -695,7 +699,7 @@ mod api {
 }
 
 pub(crate) mod migrate {
-    use anyhow::anyhow;
+    use anyhow::{anyhow, Context};
     use std::{fs::File, path::Path};
 
     use dialoguer::Confirm;
@@ -706,6 +710,21 @@ pub(crate) mod migrate {
     use super::api;
 
     #[derive(Serialize, Deserialize, Debug)]
+    pub struct Migration {
+      version: String,
+      actions: Vec<Action>,
+    }
+
+    impl Migration {
+      pub fn new(version: &str, actions: &[Action]) -> Self {
+        Self {
+          version: version.to_string(),
+          actions: actions.to_vec(),
+        }
+      }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(rename_all = "snake_case")]
     pub enum Action {
         MoveEnvironmentalVariables {
@@ -722,7 +741,7 @@ pub(crate) mod migrate {
         },
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct EnvVar {
         pub name: String,
         pub value: String,
@@ -806,10 +825,13 @@ pub(crate) mod migrate {
         }
     }
 
-    pub async fn migrate(migration_file: &Path) -> anyhow::Result<()> {
+    pub async fn migrate(migration_file: &Path, version: &str) -> anyhow::Result<()> {
         let file = File::open(migration_file)?;
-        let actions: Vec<Action> = serde_json::from_reader(file)
-            .map_err(|e| anyhow!("Error when parsing {:?} file: {}", migration_file, e))?;
+    let migration: Migration = serde_json::from_reader(file).with_context(|| format!("Error when parsing {:?} file.\nIs this a JSON file?\nDoes the version match the program version ({})?\nConsider re-generating the migration file with `wizard` subcommand.", migration_file, version))?;
+    if migration.version != version {
+        return Err(anyhow!("Migration file version is not compatible with current version, expected: {}, found: {}", version, migration.version));
+    }
+    let actions = migration.actions;
 
         println!("{}", describe_actions(&actions));
 

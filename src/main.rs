@@ -7,7 +7,7 @@ mod migrator;
 mod spinner;
 mod wizard;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory};
 
 use crate::wizard::Wizard;
 
@@ -75,6 +75,10 @@ enum CircleCiCommands {
 async fn main() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
+    let cmd = Cli::command();
+    let version = cmd.get_version().unwrap();
+    let name = cmd.get_name();
+
     match &cli.command {
         Commands::Wizard { output } => {
             let wizard = Wizard::new(output.clone());
@@ -87,7 +91,7 @@ async fn main() -> Result<(), anyhow::Error> {
             println!("{}", migrator::describe_actions(&res.actions));
             println!(
                 "Run '{} migrate {}' to start migration process",
-                BIN_NAME,
+                name,
                 output.display()
             );
         }
@@ -96,7 +100,7 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {
-                let res = circleci::wizard::Wizard::new(output).run().await?;
+                let res = circleci::wizard::Wizard::new(output, version).run().await?;
                 println!(
                     "Migration file saved to {:?}",
                     std::fs::canonicalize(&res.migration_file_path)?
@@ -104,12 +108,12 @@ async fn main() -> Result<(), anyhow::Error> {
                 println!("{}", circleci::migrate::describe_actions(&res.actions));
                 println!(
                     "Run '{} circleci migrate {}' to start migration process",
-                    BIN_NAME,
+                    name,
                     output.display()
                 );
             }
             CircleCiCommands::Migrate { migration_file } => {
-                circleci::migrate::migrate(migration_file).await?;
+                circleci::migrate::migrate(migration_file, version).await?;
             }
         },
     }
