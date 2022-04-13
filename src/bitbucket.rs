@@ -104,23 +104,6 @@ pub async fn get_project_repositories(project_key: &str) -> Result<Vec<Repositor
     Ok(res.values)
 }
 
-pub async fn get_repositories() -> Result<Vec<Repository>, anyhow::Error> {
-    let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{workspace}?pagelen={pagelen}",
-        workspace = WORKSPACE_NAME,
-        pagelen = 100
-    );
-    let mut res: RepositoriesResponse = send_get_request(url).await?;
-
-    let mut repos = res.values.clone();
-    while res.next.is_some() {
-        res = send_get_request(res.next.unwrap()).await?;
-        repos.append(&mut res.values);
-    }
-
-    Ok(repos)
-}
-
 pub async fn get_repository(repo_name: &str) -> anyhow::Result<Option<Repository>> {
     let url = format!(
         "https://api.bitbucket.org/2.0/repositories/{repo_name}",
