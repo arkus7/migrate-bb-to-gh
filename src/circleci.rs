@@ -10,6 +10,7 @@ pub(crate) mod wizard {
     use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
 
     use crate::{
+        bitbucket,
         circleci::{
             api::Context,
             migrate::{Action, EnvVar, Migration},
@@ -104,15 +105,17 @@ pub(crate) mod wizard {
         }
 
         async fn move_env_vars(&self, repository: &Repository) -> anyhow::Result<Option<Action>> {
+            let mut repository_name = repository.full_name.clone();
             let spinner = spinner::create_spinner(format!(
                 "Fetching {} environment variables",
                 &repository.name
             ));
-            let env_vars: Vec<_> = api::get_env_vars(api::Vcs::Bitbucket, &repository.full_name)
-                .await?
-                .into_iter()
-                .map(|e| e.name)
-                .collect();
+            let mut env_vars: Vec<_> =
+                api::get_env_vars(api::Vcs::Bitbucket, &repository.full_name)
+                    .await?
+                    .into_iter()
+                    .map(|e| e.name)
+                    .collect();
             spinner.finish_with_message(format!(
                 "Found {} environment variables in '{}' project",
                 env_vars.len(),
@@ -120,9 +123,70 @@ pub(crate) mod wizard {
             ));
 
             if env_vars.is_empty() {
+                println!("No environment variables found in '{}' project, making sure we're checking right project..", &repository.name);
+                let spinner = spinner::create_spinner(format!(
+                    "Fetching {} repository from Bitbucket",
+                    &repository.name
+                ));
+                let bb_repo = bitbucket::get_repository(&repository.full_name).await?;
+                spinner.finish_with_message(format!("Found {:?} repository in Bitbucket", bb_repo));
+                if bb_repo.is_none() {
+                    let manually_map = Confirm::with_theme(&self.theme)
+                        .with_prompt(format!("No repository named {} found in Bitbucket, do you want to manually map it?", &repository.name))
+                        .interact()?;
+
+                    if !manually_map {
+                        println!(
+                            "Skipping moving env variables of {} repository...",
+                            &repository.name
+                        );
+                        return Ok(None);
+                    }
+
+                    let project = self.select_project().await?;
+                    let spinner = spinner::create_spinner(format!(
+                        "Fetching repositories from {} project",
+                        project
+                    ));
+                    let repositories =
+                        bitbucket::get_project_repositories(project.get_key()).await?;
+                    spinner.finish_with_message(format!(
+                        "Fetched {} repositories from {} project!",
+                        repositories.len(),
+                        project
+                    ));
+                    let selection = FuzzySelect::with_theme(&self.theme)
+                        .with_prompt(format!("Select repository from {} project", project))
+                        .items(&repositories)
+                        .interact()?;
+
+                    let bb_repo = repositories.get(selection);
+                    if bb_repo.is_none() {
+                        println!("No repository selected, skipping...");
+                        return Ok(None);
+                    }
+
+                    let bb_repo = bb_repo.unwrap();
+                    let spinner = spinner::create_spinner(format!(
+                        "Fetching {} environment variables",
+                        &bb_repo.name
+                    ));
+                    let bb_env_vars =
+                        api::get_env_vars(api::Vcs::Bitbucket, &bb_repo.full_name).await?;
+                    spinner.finish_with_message(format!(
+                        "Found {} env variables for {} repository",
+                        bb_env_vars.len(),
+                        &bb_repo.name
+                    ));
+                    env_vars = bb_env_vars.into_iter().map(|e| e.name).collect();
+                    repository_name = bb_repo.full_name.clone();
+                }
+            }
+
+            if env_vars.is_empty() {
                 println!(
                     "No environment variables found for {}, skipping...",
-                    &repository.full_name
+                    repository_name
                 );
                 return Ok(None);
             }
@@ -130,7 +194,7 @@ pub(crate) mod wizard {
             println!(
                 "Found {} environment variables in '{}' project:\n{}",
                 env_vars.len(),
-                &repository.name,
+                repository_name,
                 env_vars
                     .iter()
                     .map(|e| format!("  {}", e))
@@ -143,7 +207,8 @@ pub(crate) mod wizard {
             let action = if move_envs {
                 let env_vars = self.select_env_vars(&env_vars).await?;
                 let action = Action::MoveEnvironmentalVariables {
-                    repository_name: repository.full_name.clone(),
+                    from_repository_name: repository_name.clone(),
+                    to_repository_name: repository.full_name.clone(),
                     env_vars,
                 };
                 Some(action)
@@ -152,6 +217,23 @@ pub(crate) mod wizard {
             };
 
             Ok(action)
+        }
+
+        async fn select_project(&self) -> Result<bitbucket::Project, anyhow::Error> {
+            let spinner = spinner::create_spinner("Fetching projects from Bitbucket...");
+            let projects = bitbucket::get_projects().await?;
+            spinner.finish_with_message("Fetched!");
+            let selection = FuzzySelect::with_theme(&self.theme)
+                .with_prompt("Select project")
+                .items(&projects)
+                .default(0)
+                .interact()
+                .expect("at least 1 project must be selected");
+            let project = projects
+                .get(selection)
+                .expect("No project selected")
+                .clone();
+            Ok(project)
         }
 
         async fn select_team(&self) -> anyhow::Result<Team> {
@@ -585,15 +667,16 @@ mod api {
     }
 
     pub async fn export_environment(
-        repo_name: &str,
+        from_repo_name: &str,
+        to_repo_name: &str,
         env_vars: &[String],
     ) -> Result<(), anyhow::Error> {
         let url = format!(
             "https://circleci.com/api/v1.1/project/bitbucket/{repo_name}/info/export-environment",
-            repo_name = repo_name
+            repo_name = from_repo_name
         );
         let body = ExportEnvironmentBody {
-            projects: vec![format!("https://github.com/{}", repo_name)],
+            projects: vec![format!("https://github.com/{}", to_repo_name)],
             env_vars: env_vars.to_vec(),
         };
 
@@ -728,7 +811,8 @@ pub(crate) mod migrate {
     #[serde(rename_all = "snake_case")]
     pub enum Action {
         MoveEnvironmentalVariables {
-            repository_name: String,
+            from_repository_name: String,
+            to_repository_name: String,
             env_vars: Vec<String>,
         },
         CreateContext {
@@ -751,11 +835,13 @@ pub(crate) mod migrate {
         pub fn describe(&self) -> String {
             match self {
                 Action::MoveEnvironmentalVariables {
-                    repository_name,
+                    from_repository_name,
+                    to_repository_name,
                     env_vars,
                 } => format!(
-                    "Move environmental variables of '{}' project from Bitbucket org to Github org\n  Envs: {}",
-                    repository_name,
+                    "Move environmental variables from '{}' project in Bitbucket to '{}' project Github\n  Envs: {}",
+                    from_repository_name,
+                    to_repository_name,
                     env_vars.join(", ")
                 ),
                 Action::CreateContext { name, variables } => format!(
@@ -798,12 +884,13 @@ pub(crate) mod migrate {
                     Ok(())
                 }
                 Action::MoveEnvironmentalVariables {
-                    repository_name,
+                    from_repository_name,
+                    to_repository_name,
                     env_vars,
                 } => {
-                    let spinner = spinner::create_spinner(format!("Moving {} environmental variables of {} project from Bitbucket org to Github org", env_vars.len(), &repository_name));
-                    let _ = api::export_environment(repository_name, env_vars).await?;
-                    spinner.finish_with_message(format!("Moved {} environmental variables of {} project from Bitbucket org to Github org", env_vars.len(), &repository_name));
+                    let spinner = spinner::create_spinner(format!("Moving {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
+                    let _ = api::export_environment(&from_repository_name, &to_repository_name, env_vars).await?;
+                    spinner.finish_with_message(format!("Moved {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
                     Ok(())
                 }
                 Action::StartPipeline {
