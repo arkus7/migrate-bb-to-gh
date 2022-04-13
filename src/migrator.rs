@@ -11,9 +11,24 @@ use crate::{
     spinner,
 };
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Migration {
+  version: String,
+  actions: Vec<Action>,
+}
+
+impl Migration {
+  pub fn new(version: &str, actions: &[Action]) -> Self {
+    Self {
+      version: version.to_string(),
+      actions: actions.to_vec(),
+    }
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     MigrateRepositories {
@@ -100,10 +115,13 @@ impl Action {
     }
 }
 
-pub async fn migrate(migration_file: &Path) -> Result<(), anyhow::Error> {
+pub async fn migrate(migration_file: &Path, version: &str) -> Result<(), anyhow::Error> {
     let file = File::open(migration_file)?;
-    let actions: Vec<Action> = serde_json::from_reader(file)
-        .map_err(|e| anyhow!("Error when parsing {:?} file: {}", migration_file, e))?;
+    let migration: Migration = serde_json::from_reader(file).with_context(|| format!("Error when parsing {:?} file.\nIs this a JSON file?\nDoes the version match the program version ({})?\nConsider re-generating the migration file with `wizard` subcommand.", migration_file, version))?;
+    if migration.version != version {
+        return Err(anyhow!("Migration file version is not compatible with current version, expected: {}, found: {}", version, migration.version));
+    }
+    let actions = migration.actions;
 
     println!("{}", describe_actions(&actions));
 

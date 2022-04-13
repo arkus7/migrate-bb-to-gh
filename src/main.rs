@@ -81,7 +81,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match &cli.command {
         Commands::Wizard { output } => {
-            let wizard = Wizard::new(output.clone());
+            let wizard = Wizard::new(output.clone(), version);
             let res = wizard.run().await?;
 
             println!(
@@ -96,7 +96,7 @@ async fn main() -> Result<(), anyhow::Error> {
             );
         }
         Commands::Migrate { migration_file } => {
-            migrator::migrate(migration_file).await?;
+            migrator::migrate(migration_file, version).await?;
         }
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {

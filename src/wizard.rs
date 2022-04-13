@@ -5,7 +5,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, 
 use crate::{
     bitbucket::{self, Repository},
     github::{self, TeamRepositoryPermission},
-    migrator::Action,
+    migrator::{Action, Migration},
     spinner,
 };
 
@@ -14,6 +14,7 @@ use anyhow::anyhow;
 pub struct Wizard {
     output_path: PathBuf,
     theme: ColorfulTheme,
+    version: String,
 }
 
 #[derive(Debug)]
@@ -23,10 +24,11 @@ pub struct WizardResult {
 }
 
 impl Wizard {
-    pub fn new(output_path: PathBuf) -> Self {
+    pub fn new(output_path: PathBuf, version: &str) -> Self {
         Self {
             output_path,
             theme: ColorfulTheme::default(),
+            version: version.to_owned(),
         }
     }
 
@@ -53,7 +55,8 @@ impl Wizard {
             actions.push(assign_action);
         }
 
-        self.save_migration_file(&actions)?;
+        let migration = Migration::new(&self.version, &actions);
+        self.save_migration_file(&migration)?;
 
         Ok(WizardResult {
             actions,
@@ -135,7 +138,7 @@ impl Wizard {
     ) -> Result<Vec<Repository>, anyhow::Error> {
         let spinner =
             spinner::create_spinner(format!("Fetching repositories from {} project", project));
-        let repositories = bitbucket::get_repositories(project.get_key()).await?;
+        let repositories = bitbucket::get_project_repositories(project.get_key()).await?;
         spinner.finish_with_message(format!(
             "Fetched {} repositories from {} project!",
             repositories.len(),
@@ -220,7 +223,7 @@ impl Wizard {
         Ok(project)
     }
 
-    fn save_migration_file(&self, actions: &[Action]) -> Result<(), anyhow::Error> {
+    fn save_migration_file(&self, migration: &Migration) -> Result<(), anyhow::Error> {
         if self.output_path.exists() {
             let overwrite = Confirm::with_theme(&self.theme)
                 .with_prompt("Migration file already exists. Overwrite?")
@@ -233,7 +236,7 @@ impl Wizard {
         }
         let mut file = File::create(&self.output_path)?;
 
-        serde_json::to_writer(&mut file, actions)?;
+        serde_json::to_writer(&mut file, migration)?;
 
         Ok(())
     }

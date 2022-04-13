@@ -7,7 +7,7 @@ const USERNAME: &str = "arkus7";
 const PASSWORD: &str = "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";
 const ORGANIZATION_NAME: &str = "moodup";
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TeamRepositoryPermission {
     Push,
