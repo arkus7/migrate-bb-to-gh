@@ -145,7 +145,10 @@ impl Wizard {
             project
         ));
         let selection = MultiSelect::with_theme(&self.theme)
-            .with_prompt(format!("Select repositories from {} project\n[Space = select, Enter = continue]", project))
+            .with_prompt(format!(
+                "Select repositories from {} project\n[Space = select, Enter = continue]",
+                project
+            ))
             .items(&repositories)
             .interact()?;
         if selection.is_empty() {

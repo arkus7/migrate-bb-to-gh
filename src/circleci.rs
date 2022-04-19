@@ -260,7 +260,10 @@ pub(crate) mod wizard {
             let repositories = github::get_team_repositories(&team.slug).await?;
             spinner.finish_with_message("Fetched!");
             let selection = MultiSelect::with_theme(&self.theme)
-                .with_prompt(format!("Select repositories from {} team\n[Space = select, Enter = continue]", &team.name))
+                .with_prompt(format!(
+                    "Select repositories from {} team\n[Space = select, Enter = continue]",
+                    &team.name
+                ))
                 .items(&repositories)
                 .interact()?;
             if selection.is_empty() {
@@ -311,7 +314,9 @@ pub(crate) mod wizard {
                 Ok(env_vars.to_vec())
             } else {
                 let selection = MultiSelect::with_theme(&self.theme)
-                    .with_prompt("Select environment variables to move\n[Space = select, Enter = continue]")
+                    .with_prompt(
+                        "Select environment variables to move\n[Space = select, Enter = continue]",
+                    )
                     .items(env_vars)
                     .interact()?;
                 if selection.is_empty() {
