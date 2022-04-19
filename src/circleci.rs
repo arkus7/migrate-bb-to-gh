@@ -606,8 +606,8 @@ mod api {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    struct StartPipelineBody {
-        branch: String,
+    struct StartPipelineBody<'a> {
+        branch: &'a str,
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -691,12 +691,10 @@ mod api {
 
     pub async fn start_pipeline(repo_name: &str, branch: &str) -> Result<(), anyhow::Error> {
         let url = format!(
-            "https://circleci.com/api/v1.1/project/gh/{repo_name}/follow",
+            "https://circleci.com/api/v2/project/gh/{repo_name}/pipeline",
             repo_name = repo_name
         );
-        let body = StartPipelineBody {
-            branch: branch.to_string(),
-        };
+        let body = StartPipelineBody { branch };
 
         let _: serde_json::Value = send_post_request(url, Some(body)).await?;
         Ok(())
