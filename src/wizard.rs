@@ -41,7 +41,9 @@ impl Wizard {
             .map(|r| r.full_name.to_owned())
             .collect();
 
-        let migrate_action = Action::MigrateRepositories { repositories: repositories.into_iter().map(|r| r.into()).collect() };
+        let migrate_action = Action::MigrateRepositories {
+            repositories: repositories.into_iter().map(|r| r.into()).collect(),
+        };
         let team_action = self.select_team(project, repositories_names).await?;
 
         let assign_action = if let Action::CreateTeam { name, repositories } = &team_action {

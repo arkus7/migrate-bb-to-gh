@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 
 use crate::{
-    bitbucket::{CloneLink, self},
+    bitbucket::{self},
     github::{self, TeamRepositoryPermission},
     spinner,
 };
@@ -30,19 +30,21 @@ impl Migration {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Repository {
-  clone_link: String,
-  name: String,
-  full_name: String,
+    clone_link: String,
+    name: String,
+    full_name: String,
 }
 
 impl From<bitbucket::Repository> for Repository {
-  fn from(repository: bitbucket::Repository) -> Self {
-    Self {
-      name: repository.name.clone(),
-      clone_link: repository.get_ssh_url().expect(&format!("missing SSH clone url for {}", repository.full_name)),
-      full_name: repository.full_name,
+    fn from(repository: bitbucket::Repository) -> Self {
+        Self {
+            name: repository.name.clone(),
+            clone_link: repository
+                .get_ssh_url()
+                .unwrap_or_else(|| panic!("missing SSH clone url for {}", repository.full_name)),
+            full_name: repository.full_name,
+        }
     }
-  }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -237,10 +239,7 @@ fn migrate_repository(
             repo.full_name,
             tempdir.path().display()
         ));
-        let _ = clone_mirror(
-            &repo.clone_link,
-            tempdir.path(),
-        );
+        let _ = clone_mirror(&repo.clone_link, tempdir.path());
         pb.inc(1);
 
         pb.set_message(format!(
