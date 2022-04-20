@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path, process::Command};
+use std::{fs::File, path::Path, process::Command, time::Instant};
 
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 
 use crate::{
-    bitbucket::Repository,
+    bitbucket::{CloneLink, self},
     github::{self, TeamRepositoryPermission},
     spinner,
 };
@@ -26,6 +26,23 @@ impl Migration {
             actions: actions.to_vec(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Repository {
+  clone_link: String,
+  name: String,
+  full_name: String,
+}
+
+impl From<bitbucket::Repository> for Repository {
+  fn from(repository: bitbucket::Repository) -> Self {
+    Self {
+      name: repository.name.clone(),
+      clone_link: repository.get_ssh_url().expect(&format!("missing SSH clone url for {}", repository.full_name)),
+      full_name: repository.full_name,
+    }
+  }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -133,9 +150,13 @@ pub async fn migrate(migration_file: &Path, version: &str) -> Result<(), anyhow:
         return Err(anyhow!("Migration canceled"));
     }
 
+    let start = Instant::now();
     for action in actions {
         let _ = action.run().await?;
     }
+    let duration = start.elapsed();
+
+    println!("Migration completed in {} seconds!", duration.as_secs());
 
     Ok(())
 }
@@ -217,7 +238,7 @@ fn migrate_repository(
             tempdir.path().display()
         ));
         let _ = clone_mirror(
-            &repo.get_ssh_url().expect("no SSH repo url"),
+            &repo.clone_link,
             tempdir.path(),
         );
         pb.inc(1);
