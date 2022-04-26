@@ -483,6 +483,7 @@ dependencies = [
  "clap",
  "dialoguer",
  "indicatif",
+ "lazy_static",
  "regex",
  "reqwest",
  "serde",

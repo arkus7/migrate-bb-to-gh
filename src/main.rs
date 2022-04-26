@@ -6,6 +6,7 @@ mod github;
 mod migrator;
 mod spinner;
 mod wizard;
+mod config;
 
 use clap::{CommandFactory, Parser, Subcommand};
 
