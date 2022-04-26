@@ -3,3 +3,5 @@ migration.json
 
 ci-migration.json
 .DS_Store
+config.encrypted.yml
+config.yml
