@@ -535,8 +535,8 @@ pub(crate) mod wizard {
 mod api {
     use reqwest::IntoUrl;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
+    use crate::CONFIG;
 
-    const TOKEN: &str = "6b6e68c774603758ab9c526dda94258ddfbdca8f";
     const AUTH_HEADER: &str = "Circle-Token";
 
     pub enum Vcs {
@@ -545,10 +545,10 @@ mod api {
     }
 
     impl Vcs {
-        const fn org_id(&self) -> &str {
+        fn org_id(&self) -> &str {
             match self {
-                Vcs::Bitbucket => "0cb7bbc7-b867-455b-a6cb-fa51b56d65af",
-                Vcs::GitHub => "d5d2a07e-1731-435c-8e9f-916b6d9dc197",
+                Vcs::Bitbucket => &CONFIG.circleci.bitbucket_org_id,
+                Vcs::GitHub => &CONFIG.circleci.github_org_id,
             }
         }
 
@@ -608,6 +608,18 @@ mod api {
     #[derive(Serialize, Deserialize, Debug, Clone)]
     struct StartPipelineBody<'a> {
         branch: &'a str,
+    }
+
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct FollowProjectBody<'a> {
+        branch: &'a str,
+    }
+
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    struct FollowProjectResponse {
+        first_build: Option<bool>
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -691,12 +703,15 @@ mod api {
 
     pub async fn start_pipeline(repo_name: &str, branch: &str) -> Result<(), anyhow::Error> {
         let url = format!(
-            "https://circleci.com/api/v2/project/gh/{repo_name}/pipeline",
+            "https://circleci.com/api/v1.1/project/gh/{repo_name}/follow",
             repo_name = repo_name
         );
         let body = StartPipelineBody { branch };
 
-        let _: serde_json::Value = send_post_request(url, Some(body)).await?;
+        let r: serde_json::Value = send_post_request(url, Some(body)).await?;
+
+        dbg!(&r);
+
         Ok(())
     }
 
@@ -737,7 +752,7 @@ mod api {
         let client = reqwest::Client::new();
         let res = client
             .get(url)
-            .header(AUTH_HEADER, TOKEN)
+            .header(AUTH_HEADER, &CONFIG.circleci.token)
             .send()
             .await?
             .error_for_status()?
@@ -754,7 +769,7 @@ mod api {
         let client = reqwest::Client::new();
         let res = client
             .post(url)
-            .header(AUTH_HEADER, TOKEN)
+            .header(AUTH_HEADER, &CONFIG.circleci.token)
             .json(&body)
             .send()
             .await?
@@ -772,7 +787,7 @@ mod api {
         let client = reqwest::Client::new();
         let res = client
             .put(url)
-            .header(AUTH_HEADER, TOKEN)
+            .header(AUTH_HEADER, &CONFIG.circleci.token)
             .json(&body)
             .send()
             .await?

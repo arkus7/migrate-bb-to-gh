@@ -2,10 +2,7 @@ use std::fmt::Display;
 
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
-const USERNAME: &str = "arkus7";
-const PASSWORD: &str = "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";
-const ORGANIZATION_NAME: &str = "moodup";
+use crate::CONFIG;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -95,7 +92,7 @@ pub struct Branch {
 pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/teams",
-        org_name = ORGANIZATION_NAME
+        org_name = &CONFIG.github.organization_name
     );
 
     let res: Vec<Team> = send_get_request(url).await?;
@@ -110,7 +107,7 @@ pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
 pub async fn create_team(name: &str, repositories: &[String]) -> Result<Team, anyhow::Error> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/teams",
-        org_name = ORGANIZATION_NAME
+        org_name = &CONFIG.github.organization_name
     );
 
     let body = CreateTeam {
@@ -132,7 +129,7 @@ pub async fn assign_repository_to_team(
     let url = format!(
         "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos/{repo_name}",
         team_slug = team_slug,
-        org_name = ORGANIZATION_NAME,
+        org_name = &CONFIG.github.organization_name,
         repo_name = repository_name
     );
 
@@ -145,7 +142,7 @@ pub async fn assign_repository_to_team(
 pub async fn create_repository(name: &str) -> Result<Repository, anyhow::Error> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/repos",
-        org_name = ORGANIZATION_NAME
+        org_name = &CONFIG.github.organization_name
     );
 
     let body = CreateRepository {
@@ -173,7 +170,7 @@ pub async fn create_repository(name: &str) -> Result<Repository, anyhow::Error> 
 async fn get_repository(name: &str) -> Result<Repository, anyhow::Error> {
     let url = format!(
         "https://api.github.com/repos/{org_name}/{repo_name}",
-        org_name = ORGANIZATION_NAME,
+        org_name = &CONFIG.github.organization_name,
         repo_name = name
     );
 
@@ -185,7 +182,7 @@ async fn get_repository(name: &str) -> Result<Repository, anyhow::Error> {
 pub async fn get_team_repositories(team_slug: &str) -> anyhow::Result<Vec<Repository>> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos",
-        org_name = ORGANIZATION_NAME,
+        org_name = &CONFIG.github.organization_name,
         team_slug = team_slug
     );
 
@@ -197,7 +194,7 @@ pub async fn get_team_repositories(team_slug: &str) -> anyhow::Result<Vec<Reposi
 pub async fn get_repositories() -> anyhow::Result<Vec<Repository>> {
     let url = format!(
         "https://api.github.com/orgs/{org_name}/repos?per_page=500",
-        org_name = ORGANIZATION_NAME,
+        org_name = &CONFIG.github.organization_name,
     );
 
     let res: Vec<Repository> = send_get_request(url).await?;
@@ -248,8 +245,8 @@ async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, 
     let client = reqwest::Client::new();
     let res = client
         .get(url)
-        .basic_auth(USERNAME, Some(PASSWORD))
-        .header("User-Agent", USERNAME)
+        .basic_auth(&CONFIG.github.username, Some(&CONFIG.github.password))
+        .header("User-Agent", &CONFIG.github.username)
         .send()
         .await?
         .error_for_status()?
@@ -268,8 +265,8 @@ where
     let client = reqwest::Client::new();
     let res = client
         .post(url)
-        .basic_auth(USERNAME, Some(PASSWORD))
-        .header("User-Agent", USERNAME)
+        .basic_auth(&CONFIG.github.username, Some(&CONFIG.github.password))
+        .header("User-Agent", &CONFIG.github.username)
         .json(&body)
         .send()
         .await?
@@ -288,8 +285,8 @@ where
     let client = reqwest::Client::new();
     let _ = client
         .put(url)
-        .basic_auth(USERNAME, Some(PASSWORD))
-        .header("User-Agent", USERNAME)
+        .basic_auth(&CONFIG.github.username, Some(&CONFIG.github.password))
+        .header("User-Agent", &CONFIG.github.username)
         .json(&body)
         .send()
         .await?

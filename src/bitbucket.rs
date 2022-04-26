@@ -2,10 +2,7 @@ use std::fmt::Display;
 
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
-const USERNAME: &str = "arek-moodup";
-const PASSWORD: &str = "LpymWNsc7KutVfgTRzqb";
-const WORKSPACE_NAME: &str = "moodup";
+use crate::config::CONFIG;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Project {
@@ -84,7 +81,7 @@ struct MainBranch {
 pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
     let url = format!(
         "https://api.bitbucket.org/2.0/workspaces/{workspace}/projects",
-        workspace = WORKSPACE_NAME
+        workspace = &CONFIG.bitbucket.workspace_name
     );
     let mut projects_res: ProjectResponse = send_get_request(url).await?;
 
@@ -98,7 +95,7 @@ pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
 }
 
 pub async fn get_project_repositories(project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
-    let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = WORKSPACE_NAME, key = project_key, pagelen = 100);
+    let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = &CONFIG.bitbucket.workspace_name, key = project_key, pagelen = 100);
     let res: RepositoriesResponse = send_get_request(url).await?;
 
     Ok(res.values)
@@ -134,7 +131,7 @@ async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, 
     let client = reqwest::Client::new();
     let res = client
         .get(url)
-        .basic_auth(USERNAME, Some(PASSWORD))
+        .basic_auth(&CONFIG.bitbucket.username, Some(&CONFIG.bitbucket.password))
         .send()
         .await?
         .error_for_status()?
