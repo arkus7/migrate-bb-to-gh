@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::fs::write;
-use base64;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config = include_bytes!("config.yml");

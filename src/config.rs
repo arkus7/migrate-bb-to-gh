@@ -1,11 +1,12 @@
-use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
+use serde::{Deserialize, Serialize};
 
 lazy_static! {
     pub static ref CONFIG: Config = {
         let config_bytes = include_bytes!("../config.encrypted.yml");
+        let cfg = base64::decode(config_bytes).expect("cannot decode config");
 
-        serde_yaml::from_slice(config_bytes).expect("cannot parse configuration file")
+        serde_yaml::from_slice(&cfg).expect("cannot parse configuration file")
     };
 }
 
@@ -14,6 +15,7 @@ pub struct Config {
     pub bitbucket: BitbucketConfig,
     pub github: GitHubConfig,
     pub circleci: CircleCiConfig,
+    pub git: GitConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -37,3 +39,8 @@ pub struct CircleCiConfig {
     pub github_org_id: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GitConfig {
+    pub push_ssh_key: String,
+    pub pull_ssh_key: String,
+}
