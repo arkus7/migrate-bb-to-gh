@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
+use crate::config::CONFIG;
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use crate::config::CONFIG;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Project {

@@ -1,4 +1,7 @@
-use std::{fs::File, path::Path, process::Command, time::Instant};
+use std::io::{stderr, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
+use std::{fs, fs::File, path::Path, process::Command, time::Instant};
 
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -8,7 +11,7 @@ use tempdir::TempDir;
 use crate::{
     bitbucket::{self},
     github::{self, TeamRepositoryPermission},
-    spinner,
+    spinner, CONFIG,
 };
 
 use anyhow::{anyhow, Context};
@@ -188,9 +191,17 @@ async fn migrate_repositories(repositories: &[Repository]) -> Result<(), anyhow:
     println!("Migrating {} repositories", repositories.len());
     let multi_progress = MultiProgress::new();
 
+    let push_key = &CONFIG.git.push_ssh_key;
+    let pull_key = &CONFIG.git.pull_ssh_key;
+
+    let tmp_dir = TempDir::new("migrate-bb-to-gh")?;
+
+    let push_key_path = store_ssh_key("push", push_key, tmp_dir.path())?;
+    let pull_key_path = store_ssh_key("pull", pull_key, tmp_dir.path())?;
+
     let handles = repositories
         .iter()
-        .map(|repo| migrate_repository(repo, &multi_progress))
+        .map(|repo| migrate_repository(repo, &multi_progress, &pull_key_path, &push_key_path))
         .collect::<Vec<_>>();
     for h in handles {
         let _ = h.await??;
@@ -198,6 +209,22 @@ async fn migrate_repositories(repositories: &[Repository]) -> Result<(), anyhow:
 
     multi_progress.clear()?;
     Ok(())
+}
+
+fn store_ssh_key(name: &str, key: &str, path: &Path) -> Result<PathBuf, anyhow::Error> {
+    let file_path = path.join(name);
+    let mut key_file = File::create(&file_path)?;
+    key_file.write_all(key.as_ref())?;
+
+    let mut perms = key_file.metadata()?.permissions();
+    perms.set_mode(0o400);
+    key_file.set_permissions(perms)?;
+
+    println!("{:?}", path);
+
+    Confirm::new().interact()?;
+
+    Ok(file_path)
 }
 
 async fn assign_repositories_to_team(
@@ -224,6 +251,8 @@ async fn assign_repositories_to_team(
 fn migrate_repository(
     repository: &Repository,
     multi_progress: &MultiProgress,
+    pull_key_path: &Path,
+    push_key_path: &Path,
 ) -> tokio::task::JoinHandle<Result<(), anyhow::Error>> {
     let steps_count = 4;
     let pb = multi_progress.add(ProgressBar::new(steps_count));
@@ -231,6 +260,8 @@ fn migrate_repository(
     pb.set_style(progress_bar_style());
 
     let repo = repository.clone();
+    let pull_key_path = pull_key_path.to_path_buf();
+    let push_key_path = push_key_path.to_path_buf();
     tokio::spawn(async move {
         let tempdir = TempDir::new(&repo.name)?;
         pb.set_message(format!(
@@ -239,7 +270,7 @@ fn migrate_repository(
             repo.full_name,
             tempdir.path().display()
         ));
-        let _ = clone_mirror(&repo.clone_link, tempdir.path());
+        let _ = clone_mirror(&repo.clone_link, tempdir.path(), &pull_key_path);
         pb.inc(1);
 
         pb.set_message(format!(
@@ -253,7 +284,7 @@ fn migrate_repository(
             "[3/{}] Mirroring {} repository to GitHub",
             steps_count, repo.full_name
         ));
-        let _ = push_mirror(tempdir.path(), &gh_repo.ssh_url)?;
+        let _ = push_mirror(tempdir.path(), &gh_repo.ssh_url, &push_key_path)?;
         pb.inc(1);
 
         pb.set_message(format!(
@@ -262,21 +293,31 @@ fn migrate_repository(
         ));
         tempdir.close()?;
 
-        pb.finish_with_message("✅ Migrated successfuly!");
+        pb.finish_with_message("✅ Migrated successfully!");
 
         Ok(())
     })
 }
 
-fn clone_mirror(remote_url: &str, target_path: &Path) -> Result<(), anyhow::Error> {
+fn clone_mirror(
+    remote_url: &str,
+    target_path: &Path,
+    key_path: &Path,
+) -> Result<(), anyhow::Error> {
+    let ssh_command = prepare_ssh_command(key_path)?;
     let clone_command = Command::new("git")
+        .arg("-c")
+        .arg(format!("core.sshCommand={}", ssh_command))
         .arg("clone")
         .arg("--mirror")
         .arg(remote_url)
         .arg(target_path)
         .output()?;
 
+    println!("{}", String::from_utf8(clone_command.stdout)?);
+
     if !clone_command.status.success() {
+        eprintln!("{}", String::from_utf8(clone_command.stderr)?);
         return Err(anyhow!(
             "Error when cloning {} into {}: {}",
             remote_url,
@@ -288,15 +329,29 @@ fn clone_mirror(remote_url: &str, target_path: &Path) -> Result<(), anyhow::Erro
     Ok(())
 }
 
-fn push_mirror(repo_path: &Path, remote_url: &str) -> Result<(), anyhow::Error> {
+fn prepare_ssh_command(key_path: &Path) -> Result<String, anyhow::Error> {
+    let cmd = format!(
+        "ssh -i '{private_key_file}' -o IdentitiesOnly=yes -F '/dev/null'",
+        private_key_file = fs::canonicalize(key_path)?.display()
+    );
+    Ok(cmd)
+}
+
+fn push_mirror(repo_path: &Path, remote_url: &str, key_path: &Path) -> Result<(), anyhow::Error> {
+    let ssh_command = prepare_ssh_command(key_path)?;
     let push_command = Command::new("git")
+        .arg("-c")
+        .arg(format!("core.sshCommand={}", ssh_command))
         .arg("push")
         .arg("--mirror")
         .arg(remote_url)
         .current_dir(repo_path)
         .output()?;
 
+    println!("{}", String::from_utf8(push_command.stdout)?);
+
     if !push_command.status.success() {
+        eprintln!("{}", String::from_utf8(push_command.stderr)?);
         return Err(anyhow!(
             "Error when pushing {} to {}: {}",
             repo_path.display(),

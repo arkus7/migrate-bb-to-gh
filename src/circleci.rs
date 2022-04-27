@@ -533,9 +533,9 @@ pub(crate) mod wizard {
 }
 
 mod api {
+    use crate::CONFIG;
     use reqwest::IntoUrl;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
-    use crate::CONFIG;
 
     const AUTH_HEADER: &str = "Circle-Token";
 
@@ -610,16 +610,14 @@ mod api {
         branch: &'a str,
     }
 
-
     #[derive(Serialize, Deserialize, Debug, Clone)]
     struct FollowProjectBody<'a> {
         branch: &'a str,
     }
 
-
     #[derive(Serialize, Deserialize, Debug, Clone)]
     struct FollowProjectResponse {
-        first_build: Option<bool>
+        first_build: Option<bool>,
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]

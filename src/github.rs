@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
+use crate::CONFIG;
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use crate::CONFIG;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]

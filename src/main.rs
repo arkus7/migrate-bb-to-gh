@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 mod bitbucket;
 mod circleci;
+mod config;
 mod github;
 mod migrator;
 mod spinner;
 mod wizard;
-mod config;
 
+use crate::config::CONFIG;
 use clap::{CommandFactory, Parser, Subcommand};
 
 use crate::wizard::Wizard;
