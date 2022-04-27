@@ -327,7 +327,7 @@ fn clone_mirror(
 
 fn prepare_ssh_command(key_path: &Path) -> Result<String, anyhow::Error> {
     let cmd = format!(
-        "ssh -i '{private_key_file}' -o IdentitiesOnly=yes -F '/dev/null'",
+        "ssh -i '{private_key_file}' -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile='/dev/null' -F '/dev/null'",
         private_key_file = fs::canonicalize(key_path)?.display()
     );
     Ok(cmd)
