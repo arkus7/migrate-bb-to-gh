@@ -1,4 +1,4 @@
-use std::io::{stderr, Write};
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::{fs, fs::File, path::Path, process::Command, time::Instant};
@@ -219,10 +219,6 @@ fn store_ssh_key(name: &str, key: &str, path: &Path) -> Result<PathBuf, anyhow::
     let mut perms = key_file.metadata()?.permissions();
     perms.set_mode(0o400);
     key_file.set_permissions(perms)?;
-
-    println!("{:?}", path);
-
-    Confirm::new().interact()?;
 
     Ok(file_path)
 }
