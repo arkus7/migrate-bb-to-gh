@@ -60,6 +60,11 @@ pub enum Action {
         name: String,
         repositories: Vec<String>,
     },
+    AddMembersToTeam {
+        team_name: String,
+        team_slug: String,
+        members: Vec<String>,
+    },
     AssignRepositoriesToTeam {
         team_name: String,
         team_slug: String,
@@ -115,6 +120,22 @@ impl Action {
                     repositories_list
                 )
             }
+            Action::AddMembersToTeam {
+                team_name, members, ..
+            } => {
+                let members_list = members
+                    .iter()
+                    .map(|r| format!("  - {}", r))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                format!(
+                    "Add {} members to {} team:\n{}",
+                    members.len(),
+                    team_name,
+                    members_list
+                )
+            }
         }
     }
 
@@ -131,6 +152,13 @@ impl Action {
                 repositories,
             } => {
                 assign_repositories_to_team(team_name, team_slug, permission, repositories).await?
+            }
+            Action::AddMembersToTeam {
+                team_name,
+                team_slug,
+                members,
+            } => {
+                todo!("Implement adding members to team")
             }
         }
         Ok(())

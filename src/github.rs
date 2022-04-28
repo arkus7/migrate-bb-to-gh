@@ -7,15 +7,21 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TeamRepositoryPermission {
-    Push,
-    Pull,
+    Read,
+    Triage,
+    Write,
+    Maintain,
+    Admin,
 }
 
 impl Display for TeamRepositoryPermission {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TeamRepositoryPermission::Push => write!(f, "write"),
-            TeamRepositoryPermission::Pull => write!(f, "read"),
+            TeamRepositoryPermission::Read => write!(f, "read"),
+            TeamRepositoryPermission::Triage => write!(f, "triage"),
+            TeamRepositoryPermission::Write => write!(f, "write"),
+            TeamRepositoryPermission::Maintain => write!(f, "maintain"),
+            TeamRepositoryPermission::Admin => write!(f, "admin"),
         }
     }
 }
@@ -87,6 +93,18 @@ pub struct FileContents {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Branch {
     pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Member {
+    pub login: String,
+    pub id: u32,
+}
+
+impl Display for Member {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.login)
+    }
 }
 
 pub async fn get_teams() -> Result<Vec<Team>, anyhow::Error> {
@@ -239,6 +257,17 @@ pub async fn get_file_contents(full_repo_name: &str, path: &str) -> anyhow::Resu
     let res = send_get_request(url).await?;
 
     Ok(res)
+}
+
+pub async fn get_org_members() -> Result<Vec<Member>, anyhow::Error> {
+    let url = format!(
+        "https://api.github.com/orgs/{org_name}/members?per_page=100",
+        org_name = &CONFIG.github.organization_name
+    );
+
+    let members: Vec<Member> = send_get_request(url).await?;
+
+    Ok(members)
 }
 
 async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, reqwest::Error> {

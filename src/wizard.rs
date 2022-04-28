@@ -9,7 +9,8 @@ use crate::{
     spinner,
 };
 
-use anyhow::anyhow;
+use crate::github::{Member, Team};
+use anyhow::{anyhow, bail};
 
 pub struct Wizard {
     output_path: PathBuf,
@@ -36,25 +37,169 @@ impl Wizard {
         let project = self.select_project().await?;
         let repositories = self.select_repositories(&project).await?;
 
+        let mut actions = vec![];
+
         let repositories_names: Vec<String> = repositories
             .iter()
             .map(|r| r.full_name.to_owned())
             .collect();
 
-        let migrate_action = Action::MigrateRepositories {
-            repositories: repositories.into_iter().map(|r| r.into()).collect(),
-        };
-        let team_action = self.select_team(project, repositories_names).await?;
+        let spinner = spinner::create_spinner("Fetching existing repositories from GitHub...");
+        let github_repositories = github::get_repositories().await?;
+        spinner.finish_with_message(format!(
+            "Fetched {} existing repositories from GitHub!",
+            github_repositories.len()
+        ));
 
-        let assign_action = if let Action::CreateTeam { name, repositories } = &team_action {
-            Some(self.select_permissions_action(name, None, repositories)?)
+        let spinner = spinner::create_spinner("Checking for existing repositories in GitHub...");
+        let selected_repo_names = repositories
+            .iter()
+            .map(|r| r.full_name.to_owned())
+            .collect::<HashSet<_>>();
+
+        let existing_repo_names = github_repositories
+            .iter()
+            .map(|r| r.full_name.to_owned())
+            .collect::<HashSet<_>>();
+
+        let intersection = selected_repo_names
+            .intersection(&existing_repo_names)
+            .collect::<Vec<_>>();
+        spinner.finish_with_message(format!(
+            "{} of the selected repositories already exist on GitHub",
+            intersection.len()
+        ));
+
+        let repositories = if !intersection.is_empty() {
+            let intersection_names = intersection
+                .iter()
+                .map(|n| n.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let msg = format!("The following repositories already exist in GitHub: {}\nDo you want to update them?", intersection_names);
+            let overwrite = Select::with_theme(&self.theme)
+                .with_prompt(msg)
+                .item("Update existing repositories")
+                .item("Skip existing repositories")
+                .default(1)
+                .interact()?;
+            match overwrite {
+                0 => repositories,
+                1 => repositories
+                    .iter()
+                    .filter(|r| !intersection.contains(&&r.full_name))
+                    .cloned()
+                    .collect(),
+                _ => unreachable!(),
+            }
         } else {
-            None
+            repositories
         };
 
-        let mut actions = vec![migrate_action, team_action];
-        if let Some(assign_action) = assign_action {
-            actions.push(assign_action);
+        if repositories.is_empty() {
+            bail!("No repositories to take actions on, exiting...");
+        } else {
+            println!(
+                "Continuing with {} repositories:\n{}",
+                repositories.len(),
+                repositories
+                    .iter()
+                    .map(|r| format!("  - {}", r.full_name))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        }
+
+        let migrate_repos = Confirm::with_theme(&self.theme)
+            .with_prompt("Do you want to mirror selected repositories from Bitbucket to GitHub?")
+            .interact()?;
+        if migrate_repos {
+            let migrate_action = Action::MigrateRepositories {
+                repositories: repositories.into_iter().map(|r| r.into()).collect(),
+            };
+            actions.push(migrate_action);
+        }
+
+        let spinner = spinner::create_spinner("Fetching teams...");
+        let teams = github::get_teams().await?;
+        spinner.finish_with_message(format!("Fetched {} teams from GitHub", teams.len()));
+
+        println!("These teams already exist on GitHub:");
+        teams.iter().for_each(|t| println!("  - {}", t.name));
+
+        let create_team_confirm = Confirm::with_theme(&self.theme)
+            .with_prompt("Do you want to create a new team for selected repositories?")
+            .interact()?;
+        let create_team_actions = if create_team_confirm {
+            let mut team_name: String;
+            loop {
+                team_name = Input::with_theme(&self.theme)
+                    .with_prompt("Team name")
+                    .with_initial_text(&project.name)
+                    .interact()?;
+
+                if teams.iter().all(|t| t.name != team_name) {
+                    break;
+                }
+
+                println!("Team with '{}' name already exist", team_name);
+            }
+
+            let team_slug = Wizard::team_slug(&team_name);
+            let people = github::get_org_members().await?;
+
+            let members_selection = MultiSelect::with_theme(&self.theme)
+                .with_prompt(format!(
+                    "Select members for the '{}' team\n(include yourself if you should be part of the team)",
+                    &team_name
+                ))
+                .items(&people)
+                .interact()?;
+
+            let members: Vec<String> = members_selection
+                .into_iter()
+                .flat_map(|idx| people.get(idx))
+                .map(|m| m.login.clone())
+                .collect::<Vec<_>>();
+
+            let permissions_action =
+                self.select_permissions_action(&team_name, Some(&team_slug), &repositories_names)?;
+            let create_team = Action::CreateTeam {
+                name: team_name.clone(),
+                repositories: repositories_names.clone(),
+            };
+            let add_members_to_team = Action::AddMembersToTeam {
+                team_name,
+                team_slug,
+                members,
+            };
+            vec![create_team, add_members_to_team, permissions_action]
+        } else {
+            vec![]
+        };
+
+        actions.extend(create_team_actions);
+
+        let additional_teams = Confirm::with_theme(&self.theme)
+            .with_prompt("Do you want to add access for teams for these repositories?\n(Consider adding tech-team for those repositories)")
+            .interact()?;
+
+        if additional_teams {
+            let team_selection = MultiSelect::with_theme(&self.theme)
+                .with_prompt("Select teams")
+                .items(&teams)
+                .interact()?;
+
+            let teams = team_selection
+                .into_iter()
+                .flat_map(|idx| teams.get(idx))
+                .collect::<Vec<_>>();
+
+            let permission_actions = teams.iter().flat_map(|team| {
+                self.select_permissions_action(&team.name, Some(&team.slug), &repositories_names)
+            });
+
+            actions.extend(permission_actions);
         }
 
         let migration = Migration::new(&self.version, &actions);
@@ -66,49 +211,6 @@ impl Wizard {
         })
     }
 
-    async fn select_team(
-        &self,
-        project: bitbucket::Project,
-        repositories_names: Vec<String>,
-    ) -> Result<Action, anyhow::Error> {
-        let team_choice = Select::with_theme(&self.theme)
-            .with_prompt("Team settings")
-            .item("Create new team")
-            .item("Select existing team")
-            .default(0)
-            .interact()?;
-        let team_action = match team_choice {
-            0 => {
-                let team_name: String = Input::with_theme(&self.theme)
-                    .with_prompt("Team name")
-                    .with_initial_text(&project.name)
-                    .interact()?;
-
-                Action::CreateTeam {
-                    name: team_name,
-                    repositories: repositories_names,
-                }
-            }
-            1 => {
-                let spinner = spinner::create_spinner("Fetching teams...");
-                let teams = github::get_teams().await?;
-                spinner.finish_with_message(format!("Fetched {} teams", teams.len()));
-
-                let team_selection = FuzzySelect::with_theme(&self.theme)
-                    .with_prompt("Select team\n[You can fuzzy search here by typing]")
-                    .items(&teams)
-                    .default(0)
-                    .interact()?;
-
-                let team = teams.get(team_selection).expect("Invalid team selected");
-
-                self.select_permissions_action(&team.name, Some(&team.slug), &repositories_names)?
-            }
-            _ => unreachable!(),
-        };
-        Ok(team_action)
-    }
-
     fn select_permissions_action(
         &self,
         team_name: &str,
@@ -116,14 +218,23 @@ impl Wizard {
         repositories_names: &[String],
     ) -> Result<Action, anyhow::Error> {
         let permission = Select::with_theme(&self.theme)
-            .with_prompt("Select permission to the repositories for selected team")
+            .with_prompt(format!(
+                "Select permission to the repositories for '{}' team",
+                &team_name
+            ))
             .item("Read")
+            .item("Triage")
             .item("Write")
-            .default(1)
+            .item("Maintain")
+            .item("Admin")
+            .default(2)
             .interact()?;
         let permission = match permission {
-            0 => TeamRepositoryPermission::Pull,
-            1 => TeamRepositoryPermission::Push,
+            0 => TeamRepositoryPermission::Read,
+            1 => TeamRepositoryPermission::Triage,
+            2 => TeamRepositoryPermission::Write,
+            3 => TeamRepositoryPermission::Maintain,
+            4 => TeamRepositoryPermission::Admin,
             _ => unreachable!(),
         };
         Ok(Action::AssignRepositoriesToTeam {
@@ -161,52 +272,6 @@ impl Wizard {
             .flat_map(|idx| repositories.get(idx))
             .cloned()
             .collect::<Vec<_>>();
-
-        let spinner = spinner::create_spinner("Fetching existing repositories from GitHub...");
-        let github_repositories = github::get_repositories().await?;
-        spinner.finish_with_message(format!(
-            "Fetched {} existing repositories from GitHub!",
-            github_repositories.len()
-        ));
-
-        let selected_repo_names = repositories
-            .iter()
-            .map(|r| r.full_name.to_owned())
-            .collect::<HashSet<_>>();
-
-        let existing_repo_names = github_repositories
-            .iter()
-            .map(|r| r.full_name.to_owned())
-            .collect::<HashSet<_>>();
-
-        let intersection = selected_repo_names
-            .intersection(&existing_repo_names)
-            .collect::<Vec<_>>();
-        let repositories = if !intersection.is_empty() {
-            let intersection_names = intersection
-                .iter()
-                .map(|n| n.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let msg = format!("The following repositories already exist in GitHub: {}\nDo you want to overwrite them?", intersection_names);
-            let overwrite = Select::with_theme(&self.theme)
-                .with_prompt(msg)
-                .item("Overwrite existing repositories")
-                .item("Skip existing repositories")
-                .default(1)
-                .interact()?;
-            match overwrite {
-                0 => repositories,
-                1 => repositories
-                    .iter()
-                    .filter(|r| !intersection.contains(&&r.full_name))
-                    .cloned()
-                    .collect(),
-                _ => unreachable!(),
-            }
-        } else {
-            repositories
-        };
 
         Ok(repositories)
     }
