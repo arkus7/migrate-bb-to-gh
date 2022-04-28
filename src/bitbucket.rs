@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 use crate::config::CONFIG;
 use reqwest::IntoUrl;
@@ -40,12 +40,12 @@ pub struct Repository {
     links: RepositoryLinks,
     pub full_name: String,
     pub name: String,
-    mainbranch: MainBranch,
+    pub mainbranch: Branch,
 }
 
 impl Display for Repository {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{} (branch: {})", self.name, self.mainbranch)
     }
 }
 
@@ -73,9 +73,20 @@ enum CloneLink {
     Https(String),
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct BranchesResponse {
+    values: Vec<Branch>,
+    next: Option<String>,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct MainBranch {
-    name: String,
+pub struct Branch {
+    pub name: String,
+}
+
+impl Display for Branch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
@@ -99,6 +110,20 @@ pub async fn get_project_repositories(project_key: &str) -> Result<Vec<Repositor
     let res: RepositoriesResponse = send_get_request(url).await?;
 
     Ok(res.values)
+}
+
+pub async fn get_repository_branches(full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
+    let url = format!("https://api.bitbucket.org/2.0/repositories/{full_repo_name}/refs/branches?pagelen={pagelen}", full_repo_name = full_repo_name, pagelen = 100);
+
+    let mut branches_res: BranchesResponse = send_get_request(url).await?;
+
+    let mut branches = branches_res.values.clone();
+    while branches_res.next.is_some() {
+        branches_res = send_get_request(branches_res.next.unwrap()).await?;
+        branches.append(&mut branches_res.values);
+    }
+
+    Ok(branches)
 }
 
 pub async fn get_repository(repo_name: &str) -> anyhow::Result<Option<Repository>> {

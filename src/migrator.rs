@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -71,6 +72,10 @@ pub enum Action {
         permission: TeamRepositoryPermission,
         repositories: Vec<String>,
     },
+    SetRepositoryDefaultBranch {
+        repository_name: String,
+        branch: String,
+    },
 }
 
 impl Action {
@@ -136,6 +141,15 @@ impl Action {
                     members_list
                 )
             }
+            Action::SetRepositoryDefaultBranch {
+                repository_name,
+                branch,
+            } => {
+                format!(
+                    "Set default branch of '{}' repository to '{}'",
+                    repository_name, branch
+                )
+            }
         }
     }
 
@@ -157,12 +171,46 @@ impl Action {
                 team_name,
                 team_slug,
                 members,
-            } => {
-                todo!("Implement adding members to team")
-            }
+            } => add_members_to_team(team_name, team_slug, members).await?,
+            Action::SetRepositoryDefaultBranch {
+                repository_name,
+                branch,
+            } => set_default_branch(repository_name, branch).await?,
         }
         Ok(())
     }
+}
+
+async fn add_members_to_team(
+    team_name: &str,
+    team_slug: &str,
+    members: &[String],
+) -> anyhow::Result<()> {
+    println!("Adding {} members to {} team", members.len(), team_name,);
+    let pb = ProgressBar::new(members.len() as u64);
+    pb.set_style(progress_bar_style());
+    for member in members {
+        github::update_team_membership(team_slug, member).await?;
+        pb.inc(1);
+    }
+    Ok(())
+}
+
+async fn set_default_branch(repo_name: &str, branch: &str) -> anyhow::Result<()> {
+    println!(
+        "Setting '{}' as default branch for '{}' repository",
+        branch, repo_name,
+    );
+    let spinner = spinner::create_spinner(format!(
+        "Setting '{}' as default branch for '{}' repository",
+        branch, repo_name
+    ));
+    github::set_repository_default_branch(repo_name, branch).await?;
+    spinner.finish_with_message(format!(
+        "Set '{}' as default branch for '{}' repository",
+        branch, repo_name
+    ));
+    Ok(())
 }
 
 pub async fn migrate(migration_file: &Path, version: &str) -> Result<(), anyhow::Error> {
@@ -287,7 +335,7 @@ fn migrate_repository(
     let pull_key_path = pull_key_path.to_path_buf();
     let push_key_path = push_key_path.to_path_buf();
     tokio::spawn(async move {
-        let tempdir = TempDir::new(&repo.name)?;
+        let tempdir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
         pb.set_message(format!(
             "[1/{}] Cloning {} into {}",
             steps_count,
@@ -301,7 +349,8 @@ fn migrate_repository(
             "[2/{}] Creating {} repository in GitHub",
             steps_count, repo.full_name
         ));
-        let gh_repo = github::create_repository(&repo.name).await?;
+        let gh_repo =
+            github::create_repository(&repo.full_name.to_owned().replace("moodup/", "")).await?;
         pb.inc(1);
 
         pb.set_message(format!(

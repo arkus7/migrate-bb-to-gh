@@ -9,7 +9,6 @@ use crate::{
     spinner,
 };
 
-use crate::github::{Member, Team};
 use anyhow::{anyhow, bail};
 
 pub struct Wizard {
@@ -115,7 +114,7 @@ impl Wizard {
             .interact()?;
         if migrate_repos {
             let migrate_action = Action::MigrateRepositories {
-                repositories: repositories.into_iter().map(|r| r.into()).collect(),
+                repositories: repositories.iter().map(|r| r.clone().into()).collect(),
             };
             actions.push(migrate_action);
         }
@@ -181,7 +180,7 @@ impl Wizard {
         actions.extend(create_team_actions);
 
         let additional_teams = Confirm::with_theme(&self.theme)
-            .with_prompt("Do you want to add access for teams for these repositories?\n(Consider adding tech-team for those repositories)")
+            .with_prompt("Do you want to add access for other teams to these repositories?\n(Consider adding tech-team for those repositories)")
             .interact()?;
 
         if additional_teams {
@@ -200,6 +199,54 @@ impl Wizard {
             });
 
             actions.extend(permission_actions);
+        }
+
+        let change_branches = Confirm::with_theme(&self.theme)
+            .with_prompt("Do you want to change default branches of selected repositories?")
+            .interact()?;
+
+        if change_branches {
+            let for_change = MultiSelect::with_theme(&self.theme)
+                .with_prompt("Select repositories to change the default branch")
+                .items(&repositories)
+                .interact()?;
+            let for_change = for_change.iter().flat_map(|idx| repositories.get(*idx));
+            for repo in for_change {
+                let spinner = spinner::create_spinner(format!(
+                    "Fetching branches for '{}' repository...",
+                    repo.full_name
+                ));
+                let branches = bitbucket::get_repository_branches(&repo.full_name).await?;
+                spinner.finish_with_message(format!(
+                    "Fetched {} branches for '{}' repository!",
+                    branches.len(),
+                    repo.full_name
+                ));
+
+                let current_idx = branches.iter().position(|b| b.name == repo.mainbranch.name);
+                let default_idx = branches.iter().position(|b| b.name == "development");
+
+                let default_idx = match (default_idx, current_idx) {
+                    (Some(idx), _) => idx,
+                    (_, Some(idx)) => idx,
+                    _ => 0,
+                };
+
+                let branch = FuzzySelect::with_theme(&self.theme)
+                    .with_prompt(format!(
+                        "Select new default branch for '{}' repository",
+                        repo.full_name
+                    ))
+                    .items(&branches)
+                    .default(default_idx)
+                    .interact()?;
+                let selected_branch = branches.get(branch).expect("Invalid branch selected");
+                let action = Action::SetRepositoryDefaultBranch {
+                    repository_name: repo.full_name.clone(),
+                    branch: selected_branch.name.clone(),
+                };
+                actions.push(action);
+            }
         }
 
         let migration = Migration::new(&self.version, &actions);
@@ -226,15 +273,13 @@ impl Wizard {
             .item("Triage")
             .item("Write")
             .item("Maintain")
-            .item("Admin")
             .default(2)
             .interact()?;
         let permission = match permission {
-            0 => TeamRepositoryPermission::Read,
+            0 => TeamRepositoryPermission::Pull,
             1 => TeamRepositoryPermission::Triage,
-            2 => TeamRepositoryPermission::Write,
+            2 => TeamRepositoryPermission::Push,
             3 => TeamRepositoryPermission::Maintain,
-            4 => TeamRepositoryPermission::Admin,
             _ => unreachable!(),
         };
         Ok(Action::AssignRepositoriesToTeam {

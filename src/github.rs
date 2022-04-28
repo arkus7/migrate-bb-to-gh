@@ -1,5 +1,6 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
+use crate::migrator::Action::SetRepositoryDefaultBranch;
 use crate::CONFIG;
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -7,9 +8,9 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TeamRepositoryPermission {
-    Read,
+    Pull,
     Triage,
-    Write,
+    Push,
     Maintain,
     Admin,
 }
@@ -17,9 +18,9 @@ pub enum TeamRepositoryPermission {
 impl Display for TeamRepositoryPermission {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TeamRepositoryPermission::Read => write!(f, "read"),
+            TeamRepositoryPermission::Pull => write!(f, "read"),
             TeamRepositoryPermission::Triage => write!(f, "triage"),
-            TeamRepositoryPermission::Write => write!(f, "write"),
+            TeamRepositoryPermission::Push => write!(f, "write"),
             TeamRepositoryPermission::Maintain => write!(f, "maintain"),
             TeamRepositoryPermission::Admin => write!(f, "admin"),
         }
@@ -95,10 +96,33 @@ pub struct Branch {
     pub name: String,
 }
 
+impl Display for Branch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Member {
     pub login: String,
     pub id: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SetDefaultBranchBody<'a> {
+    pub default_branch: &'a str,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+enum TeamMemberRole {
+    Member,
+    Maintainer,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct UpdateTeamMembershipBody {
+    role: TeamMemberRole,
 }
 
 impl Display for Member {
@@ -270,6 +294,42 @@ pub async fn get_org_members() -> Result<Vec<Member>, anyhow::Error> {
     Ok(members)
 }
 
+pub async fn set_repository_default_branch(
+    full_repo_name: &str,
+    default_branch: &str,
+) -> anyhow::Result<Repository> {
+    let url = format!(
+        "https://api.github.com/repos/{repo_name}",
+        repo_name = full_repo_name
+    );
+
+    let body = SetDefaultBranchBody { default_branch };
+
+    let res = send_patch_request(url, Some(body)).await?;
+
+    Ok(res)
+}
+
+pub(crate) async fn update_team_membership(
+    team_slug: &str,
+    member_login: &str,
+) -> anyhow::Result<()> {
+    let url = format!(
+        "https://api.github.com/orgs/{org}/teams/{team_slug}/memberships/{username}",
+        org = &CONFIG.github.organization_name,
+        team_slug = team_slug,
+        username = member_login,
+    );
+
+    let body = UpdateTeamMembershipBody {
+        role: TeamMemberRole::Member,
+    };
+
+    let _ = send_put_request(url, Some(body)).await?;
+
+    Ok(())
+}
+
 async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, reqwest::Error> {
     let client = reqwest::Client::new();
     let res = client
@@ -322,4 +382,25 @@ where
         .error_for_status()?;
 
     Ok(())
+}
+
+async fn send_patch_request<U, B, T>(url: U, body: Option<B>) -> Result<T, reqwest::Error>
+where
+    U: IntoUrl,
+    B: Serialize,
+    T: DeserializeOwned,
+{
+    let client = reqwest::Client::new();
+    let res = client
+        .patch(url)
+        .basic_auth(&CONFIG.github.username, Some(&CONFIG.github.password))
+        .header("User-Agent", &CONFIG.github.username)
+        .json(&body)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    Ok(res)
 }
