@@ -280,7 +280,9 @@ async fn migrate_repositories(repositories: &[Repository]) -> Result<(), anyhow:
         .collect::<Vec<_>>();
     for h in handles {
         let res = h.await?;
-        if let Err(e) = res { eprintln!("Failed to migrate repository: {}", e) }
+        if let Err(e) = res {
+            eprintln!("Failed to migrate repository: {}", e)
+        }
     }
 
     multi_progress.clear()?;
@@ -336,11 +338,7 @@ fn migrate_repository(
     let push_key_path = push_key_path.to_path_buf();
     tokio::spawn(async move {
         let tempdir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
-        pb.set_message(format!(
-            "[1/{}] Cloning {}",
-            steps_count,
-            repo.full_name,
-        ));
+        pb.set_message(format!("[1/{}] Cloning {}", steps_count, repo.full_name,));
         let _ = clone_mirror(&repo.clone_link, tempdir.path(), &pull_key_path);
         pb.inc(1);
 
