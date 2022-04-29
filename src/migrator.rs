@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;

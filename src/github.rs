@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use crate::migrator::Action::SetRepositoryDefaultBranch;
 use crate::CONFIG;
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
