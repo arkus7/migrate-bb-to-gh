@@ -279,7 +279,8 @@ async fn migrate_repositories(repositories: &[Repository]) -> Result<(), anyhow:
         .map(|repo| migrate_repository(repo, &multi_progress, &pull_key_path, &push_key_path))
         .collect::<Vec<_>>();
     for h in handles {
-        let _ = h.await??;
+        let res = h.await?;
+        if let Err(e) = res { eprintln!("Failed to migrate repository: {}", e) }
     }
 
     multi_progress.clear()?;
@@ -324,7 +325,7 @@ fn migrate_repository(
     multi_progress: &MultiProgress,
     pull_key_path: &Path,
     push_key_path: &Path,
-) -> tokio::task::JoinHandle<Result<(), anyhow::Error>> {
+) -> tokio::task::JoinHandle<Result<Repository, anyhow::Error>> {
     let steps_count = 4;
     let pb = multi_progress.add(ProgressBar::new(steps_count));
     pb.set_prefix(format!("[{}] ", repository.full_name));
@@ -336,10 +337,9 @@ fn migrate_repository(
     tokio::spawn(async move {
         let tempdir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
         pb.set_message(format!(
-            "[1/{}] Cloning {} into {}",
+            "[1/{}] Cloning {}",
             steps_count,
             repo.full_name,
-            tempdir.path().display()
         ));
         let _ = clone_mirror(&repo.clone_link, tempdir.path(), &pull_key_path);
         pb.inc(1);
@@ -367,7 +367,7 @@ fn migrate_repository(
 
         pb.finish_with_message("✅ Migrated successfully!");
 
-        Ok(())
+        Ok(repo)
     })
 }
 
@@ -386,15 +386,16 @@ fn clone_mirror(
         .arg(target_path)
         .output()?;
 
-    println!("{}", String::from_utf8(clone_command.stdout)?);
+    // println!("{}", String::from_utf8(clone_command.stdout)?);
 
     if !clone_command.status.success() {
-        eprintln!("{}", String::from_utf8(clone_command.stderr)?);
+        let err_output = String::from_utf8(clone_command.stderr)?;
         return Err(anyhow!(
-            "Error when cloning {} into {}: {}",
+            "Error when cloning {} into {}: {}\noutput: {}",
             remote_url,
             target_path.display(),
-            clone_command.status
+            clone_command.status,
+            err_output
         ));
     }
 
@@ -420,15 +421,16 @@ fn push_mirror(repo_path: &Path, remote_url: &str, key_path: &Path) -> Result<()
         .current_dir(repo_path)
         .output()?;
 
-    println!("{}", String::from_utf8(push_command.stdout)?);
+    // println!("{}", String::from_utf8(push_command.stdout)?);
 
     if !push_command.status.success() {
-        eprintln!("{}", String::from_utf8(push_command.stderr)?);
+        let err_output = String::from_utf8(push_command.stderr)?;
         return Err(anyhow!(
-            "Error when pushing {} to {}: {}",
+            "Error when pushing {} to {}: {}\noutput: {}",
             repo_path.display(),
             remote_url,
-            push_command.status
+            push_command.status,
+            err_output
         ));
     }
 
@@ -436,7 +438,7 @@ fn push_mirror(repo_path: &Path, remote_url: &str, key_path: &Path) -> Result<()
 }
 
 fn progress_bar_style() -> ProgressStyle {
-    ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+    ProgressStyle::with_template("[{elapsed}] {bar:20.cyan/blue} {pos:>7}/{len:7} {msg}")
         .unwrap()
         .progress_chars("##-")
 }
