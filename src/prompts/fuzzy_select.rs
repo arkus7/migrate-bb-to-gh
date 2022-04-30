@@ -1,15 +1,21 @@
+use super::default_theme;
+use dialoguer::FuzzySelect as InnerFuzzySelect;
 use std::fmt::Display;
 use std::io;
-use dialoguer::FuzzySelect as InnerFuzzySelect;
-use super::default_theme;
 
-pub struct FuzzySelect<'a, T> where T: Display {
+pub struct FuzzySelect<'a, T>
+where
+    T: Display,
+{
     items: Vec<&'a T>,
     prompt: String,
-    default: usize
+    default: usize,
 }
 
-impl<'a, T> FuzzySelect<'a, T> where T: Display {
+impl<'a, T> FuzzySelect<'a, T>
+where
+    T: Display,
+{
     pub fn with_prompt(prompt: &str) -> Self {
         Self {
             items: vec![],
@@ -30,16 +36,21 @@ impl<'a, T> FuzzySelect<'a, T> where T: Display {
         self
     }
 
-
     pub fn interact(&self) -> io::Result<&'a T> {
-        let selected = self.interact_opt()?.expect("At least 1 item must be selected");
+        let selected = self
+            .interact_opt()?
+            .expect("At least 1 item must be selected");
 
         Ok(selected)
     }
 
     pub fn interact_opt(&self) -> io::Result<Option<&'a T>> {
         let idx = InnerFuzzySelect::with_theme(&default_theme())
-            .with_prompt(&self.prompt)
+            .with_prompt(format!(
+                "{prompt}\n{tip}",
+                prompt = &self.prompt,
+                tip = prompt_tip()
+            ))
             .items(&self.items)
             .default(self.default)
             .interact()?;
@@ -48,4 +59,8 @@ impl<'a, T> FuzzySelect<'a, T> where T: Display {
 
         Ok(selected)
     }
+}
+
+fn prompt_tip() -> &'static str {
+    "[You can fuzzy search here by typing]"
 }

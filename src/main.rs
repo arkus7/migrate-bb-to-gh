@@ -1,15 +1,11 @@
 use std::path::PathBuf;
 
-mod bitbucket;
-mod circleci;
-mod config;
-mod github;
-mod migrator;
-mod spinner;
-mod wizard;
+use migrate_bb_to_gh::prompts::FuzzySelect;
 
 use crate::config::CONFIG;
 use clap::{CommandFactory, Parser, Subcommand};
+use migrate_bb_to_gh::{circleci, migrator};
+use migrate_bb_to_gh::wizard::Wizard;
 
 use crate::wizard::Wizard;
 

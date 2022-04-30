@@ -1,4 +1,4 @@
-pub(crate) mod wizard {
+pub mod wizard {
     use std::{
         collections::HashSet,
         fs::File,
@@ -797,7 +797,7 @@ mod api {
     }
 }
 
-pub(crate) mod migrate {
+pub mod migrate {
     use anyhow::{anyhow, Context};
     use std::{fs::File, path::Path};
 

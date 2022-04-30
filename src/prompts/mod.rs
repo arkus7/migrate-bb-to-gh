@@ -1,4 +1,4 @@
-use dialoguer::theme::{ColorfulTheme};
+use dialoguer::theme::ColorfulTheme;
 
 mod fuzzy_select;
 
