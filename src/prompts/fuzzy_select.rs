@@ -14,7 +14,7 @@ where
 
 impl<'a, T> FuzzySelect<'a, T>
 where
-    T: Display,
+    T: 'a + Display,
 {
     pub fn with_prompt(prompt: &str) -> Self {
         Self {
@@ -24,7 +24,7 @@ where
         }
     }
 
-    pub fn items(&mut self, items: &'a [T]) -> &mut Self {
+    pub fn items(&mut self, items: &[&'a T]) -> &mut Self {
         for item in items {
             self.items.push(item);
         }
