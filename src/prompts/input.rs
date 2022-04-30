@@ -1,5 +1,5 @@
-use std::io;
 use crate::prompts::default_theme;
+use std::io;
 
 type InputValidator = Box<dyn Fn(&str) -> Option<&str>>;
 
@@ -29,12 +29,12 @@ pub struct Input {
     validator: Option<InputValidator>,
 }
 
-impl Input<> {
+impl Input {
     pub fn with_prompt<S: Into<String>>(prompt: S) -> Self {
         Self {
             prompt: prompt.into(),
             initial_text: "".into(),
-            validator: None
+            validator: None,
         }
     }
 
@@ -61,16 +61,14 @@ impl Input<> {
             if let Some(validator) = &self.validator {
                 let err: Option<&str> = validator(&input);
                 match err {
-                    None => {
-                        return Ok(input)
-                    }
+                    None => return Ok(input),
                     Some(e) => {
                         println!("{}", e);
                         continue;
                     }
                 }
             } else {
-                return Ok(input)
+                return Ok(input);
             }
         }
     }
