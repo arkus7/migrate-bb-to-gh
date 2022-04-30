@@ -6,8 +6,8 @@ pub mod wizard {
         str::FromStr,
     };
 
+    use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect};
     use anyhow::{anyhow, Ok};
-    use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect};
 
     use crate::{
         bitbucket,
@@ -23,7 +23,6 @@ pub mod wizard {
 
     pub struct Wizard {
         output: PathBuf,
-        theme: ColorfulTheme,
         version: String,
     }
 
@@ -36,7 +35,6 @@ pub mod wizard {
         pub fn new(output: &Path, version: &str) -> Self {
             Self {
                 output: output.to_path_buf(),
-                theme: ColorfulTheme::default(),
                 version: version.to_owned(),
             }
         }
@@ -131,8 +129,7 @@ pub mod wizard {
                 let bb_repo = bitbucket::get_repository(&repository.full_name).await?;
                 spinner.finish_with_message(format!("Found {:?} repository in Bitbucket", bb_repo));
                 if bb_repo.is_none() {
-                    let manually_map = Confirm::with_theme(&self.theme)
-                        .with_prompt(format!("No repository named {} found in Bitbucket, do you want to manually map it?", &repository.name))
+                    let manually_map = Confirm::with_prompt(format!("No repository named {} found in Bitbucket, do you want to manually map it?", &repository.name))
                         .interact()?;
 
                     if !manually_map {
@@ -155,12 +152,13 @@ pub mod wizard {
                         repositories.len(),
                         project
                     ));
-                    let selection = FuzzySelect::with_theme(&self.theme)
-                        .with_prompt(format!("Select repository from {} project\n[You can fuzzy search here by typing]", project))
-                        .items(&repositories)
-                        .interact()?;
+                    let bb_repo = FuzzySelect::with_prompt(format!(
+                        "Select repository from {} project",
+                        project
+                    ))
+                    .items(&repositories)
+                    .interact_opt()?;
 
-                    let bb_repo = repositories.get(selection);
                     if bb_repo.is_none() {
                         println!("No repository selected, skipping...");
                         return Ok(None);
@@ -201,8 +199,8 @@ pub mod wizard {
                     .collect::<Vec<_>>()
                     .join("\n")
             );
-            let move_envs = Confirm::with_theme(&self.theme)
-                .with_prompt("Do you want to move the environment variables from Bitbucket to GitHub organization?")
+            let move_envs = Confirm::with_prompt("Do you want to move the environment variables from Bitbucket to GitHub organization?")
+                .default(true)
                 .interact()?;
             let action = if move_envs {
                 let env_vars = self.select_env_vars(&env_vars).await?;
@@ -223,16 +221,13 @@ pub mod wizard {
             let spinner = spinner::create_spinner("Fetching projects from Bitbucket...");
             let projects = bitbucket::get_projects().await?;
             spinner.finish_with_message("Fetched!");
-            let selection = FuzzySelect::with_theme(&self.theme)
-                .with_prompt("Select project\n[You can fuzzy search here by typing]")
+            let project = FuzzySelect::with_prompt("Select project")
                 .items(&projects)
                 .default(0)
                 .interact()
-                .expect("at least 1 project must be selected");
-            let project = projects
-                .get(selection)
-                .expect("No project selected")
+                .expect("at least 1 project must be selected")
                 .clone();
+
             Ok(project)
         }
 
@@ -241,13 +236,11 @@ pub mod wizard {
             let teams = github::get_teams().await?;
             spinner.finish_with_message(format!("Fetched {} teams", teams.len()));
 
-            let team_selection = FuzzySelect::with_theme(&self.theme)
-                .with_prompt("Select team\n[You can fuzzy search here by typing]")
+            let team = FuzzySelect::with_prompt("Select team")
                 .items(&teams)
                 .default(0)
                 .interact()?;
 
-            let team = teams.get(team_selection).expect("Invalid team selected");
             Ok(team.clone())
         }
 
@@ -259,21 +252,15 @@ pub mod wizard {
                 spinner::create_spinner(format!("Fetching repositories from {} team", &team.name));
             let repositories = github::get_team_repositories(&team.slug).await?;
             spinner.finish_with_message("Fetched!");
-            let selection = MultiSelect::with_theme(&self.theme)
-                .with_prompt(format!(
-                    "Select repositories from {} team\n[Space = select, Enter = continue]",
-                    &team.name
-                ))
-                .items(&repositories)
-                .interact()?;
+            let selection =
+                MultiSelect::with_prompt(format!("Select repositories from {} team", &team.name))
+                    .items(&repositories)
+                    .interact()?;
             if selection.is_empty() {
                 return Err(anyhow!("At least one repository must be selected"));
             }
-            let repositories: Vec<github::Repository> = selection
-                .into_iter()
-                .flat_map(|idx| repositories.get(idx))
-                .cloned()
-                .collect::<Vec<_>>();
+            let repositories: Vec<github::Repository> =
+                selection.into_iter().cloned().collect::<Vec<_>>();
             Ok(repositories)
         }
 
@@ -304,29 +291,22 @@ pub mod wizard {
         }
 
         async fn select_env_vars(&self, env_vars: &[String]) -> anyhow::Result<Vec<String>> {
-            let all = Confirm::with_theme(&self.theme)
-                .with_prompt(
-                    "Do you want to move all environment variables? (No = select which to move)",
-                )
-                .interact()?;
+            let all = Confirm::with_prompt(
+                "Do you want to move all environment variables? (No = select which to move)",
+            )
+            .default(true)
+            .interact()?;
 
             if all {
                 Ok(env_vars.to_vec())
             } else {
-                let selection = MultiSelect::with_theme(&self.theme)
-                    .with_prompt(
-                        "Select environment variables to move\n[Space = select, Enter = continue]",
-                    )
+                let selection = MultiSelect::with_prompt("Select environment variables to move")
                     .items(env_vars)
                     .interact()?;
                 if selection.is_empty() {
                     println!("⚠️No environment variables selected");
                 }
-                let env_vars: Vec<String> = selection
-                    .into_iter()
-                    .flat_map(|idx| env_vars.get(idx))
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let env_vars: Vec<String> = selection.into_iter().cloned().collect::<Vec<_>>();
                 Ok(env_vars)
             }
         }
@@ -377,8 +357,7 @@ pub mod wizard {
                 diff.join(", ")
             );
 
-            let context_selection = MultiSelect::with_theme(&self.theme)
-                .with_prompt("Select contexts to create\n[Space = select, Enter = continue]")
+            let context_selection = MultiSelect::with_prompt("Select contexts to create")
                 .items(&diff)
                 .interact()?;
 
@@ -387,14 +366,9 @@ pub mod wizard {
                 return Ok(vec![]);
             }
 
-            let contexts: Vec<String> = context_selection
-                .into_iter()
-                .flat_map(|idx| diff.get(idx))
-                .cloned()
-                .collect::<Vec<_>>();
+            let contexts: Vec<String> = context_selection.into_iter().cloned().collect::<Vec<_>>();
 
-            let input_variables_values = Confirm::with_theme(&self.theme)
-                .with_prompt("Do you want to input variable values to the new contexts? (No = creating empty contexts)")
+            let input_variables_values = Confirm::with_prompt("Do you want to input variable values to the new contexts? (No = creating empty contexts)")
                 .interact()?;
 
             if !input_variables_values {
@@ -426,10 +400,10 @@ pub mod wizard {
                         .into_iter()
                         .map(|variable| {
                             let name = variable.variable;
-                            let value = Input::with_theme(&self.theme)
-                                .with_prompt(format!("Input value for '{}' variable:", name))
-                                .interact()
-                                .expect("invalid input for variable value");
+                            let value =
+                                Input::with_prompt(format!("Input value for '{}' variable:", name))
+                                    .interact()
+                                    .expect("invalid input for variable value");
                             EnvVar { name, value }
                         })
                         .collect::<Vec<_>>();
@@ -452,23 +426,23 @@ pub mod wizard {
         }
 
         async fn start_build(&self, repo: &Repository) -> anyhow::Result<Option<Action>> {
-            let confirm = Confirm::with_theme(&self.theme)
-                .with_prompt(format!(
-                    "Do you want to start a build for {} repository on CircleCI?",
-                    &repo.name
-                ))
-                .interact()?;
+            let confirm = Confirm::with_prompt(format!(
+                "Do you want to start a build for {} repository on CircleCI?",
+                &repo.name
+            ))
+            .default(true)
+            .interact()?;
 
             if !confirm {
                 return Ok(None);
             }
 
-            let use_default_branch = Confirm::with_theme(&self.theme)
-                .with_prompt(format!(
-                    "Do you want to use default branch for build ({})?",
-                    &repo.default_branch
-                ))
-                .interact()?;
+            let use_default_branch = Confirm::with_prompt(format!(
+                "Do you want to use default branch for build ({})?",
+                &repo.default_branch
+            ))
+            .default(true)
+            .interact()?;
 
             if use_default_branch {
                 return Ok(Some(Action::StartPipeline {
@@ -491,19 +465,18 @@ pub mod wizard {
                 .position(|branch| branch == &repo.default_branch)
                 .unwrap_or(0);
 
-            let branch_selection = FuzzySelect::with_theme(&self.theme)
-                .with_prompt("Select branch to build\n[You can fuzzy search here by typing]")
+            let branch = FuzzySelect::with_prompt("Select branch to build")
                 .items(&branches)
                 .default(default_idx)
                 .interact()?;
 
             Ok(Some(Action::StartPipeline {
                 repository_name: repo.full_name.clone(),
-                branch: branches[branch_selection].clone(),
+                branch: branch.clone(),
             }))
         }
 
-        fn parse_config(&self, config: &FileContents) -> anyhow::Result<super::config::Config> {
+        fn parse_config(&self, config: &FileContents) -> anyhow::Result<Config> {
             let config = base64::decode_config(config.content.replace('\n', ""), base64::STANDARD)?;
             let config = std::str::from_utf8(&config)?;
 
@@ -514,8 +487,7 @@ pub mod wizard {
 
         fn save_migration_file(&self, migration: &Migration) -> Result<(), anyhow::Error> {
             if self.output.exists() {
-                let overwrite = Confirm::with_theme(&self.theme)
-                    .with_prompt("Migration file already exists. Overwrite?")
+                let overwrite = Confirm::with_prompt("Migration file already exists. Overwrite?")
                     .default(false)
                     .interact()?;
 
