@@ -1,5 +1,6 @@
 use crate::prompts::default_theme;
 use std::fmt::Display;
+use std::io;
 
 pub struct MultiSelect<'a, T> {
     items: Vec<&'a T>,
@@ -24,17 +25,8 @@ where
         self
     }
 
-    pub fn interact(&self) -> std::io::Result<Vec<&'a T>> {
-        use dialoguer::MultiSelect;
-
-        let indices = MultiSelect::with_theme(&default_theme())
-            .with_prompt(format!(
-                "{prompt}\n{tip}",
-                prompt = &self.prompt,
-                tip = prompt_tip()
-            ))
-            .items(&self.items)
-            .interact()?;
+    pub fn interact(&self) -> io::Result<Vec<&'a T>> {
+        let indices = self.interact_idx()?;
 
         let selected = indices
             .into_iter()
@@ -42,6 +34,19 @@ where
             .collect();
 
         Ok(selected)
+    }
+
+    pub fn interact_idx(&self) -> io::Result<Vec<usize>> {
+        use dialoguer::MultiSelect;
+
+        MultiSelect::with_theme(&default_theme())
+            .with_prompt(format!(
+                "{prompt}\n{tip}",
+                prompt = &self.prompt,
+                tip = prompt_tip()
+            ))
+            .items(&self.items)
+            .interact()
     }
 }
 

@@ -44,9 +44,17 @@ where
     }
 
     pub fn interact_opt(&self) -> io::Result<Option<&'a T>> {
+        let idx = self.interact_idx()?;
+
+        let selected: Option<&'a T> = self.items.get(idx).copied();
+
+        Ok(selected)
+    }
+
+    pub fn interact_idx(&self) -> io::Result<usize> {
         use dialoguer::FuzzySelect;
 
-        let idx = FuzzySelect::with_theme(&default_theme())
+        FuzzySelect::with_theme(&default_theme())
             .with_prompt(format!(
                 "{prompt}\n{tip}",
                 prompt = &self.prompt,
@@ -54,14 +62,10 @@ where
             ))
             .items(&self.items)
             .default(self.default)
-            .interact()?;
-
-        let selected: Option<&'a T> = self.items.get(idx).copied();
-
-        Ok(selected)
+            .interact()
     }
 }
 
 fn prompt_tip() -> &'static str {
-    "[You can fuzzy search here by typing]"
+    "[Search by typing, Enter = continue]"
 }
