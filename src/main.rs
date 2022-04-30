@@ -2,12 +2,9 @@ use std::path::PathBuf;
 
 use migrate_bb_to_gh::prompts::FuzzySelect;
 
-use crate::config::CONFIG;
 use clap::{CommandFactory, Parser, Subcommand};
-use migrate_bb_to_gh::{circleci, migrator};
 use migrate_bb_to_gh::wizard::Wizard;
-
-use crate::wizard::Wizard;
+use migrate_bb_to_gh::{circleci, migrator};
 
 /// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
 #[derive(Parser)]

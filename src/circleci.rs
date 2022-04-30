@@ -533,7 +533,7 @@ pub mod wizard {
 }
 
 mod api {
-    use crate::CONFIG;
+    use crate::config::CONFIG;
     use reqwest::IntoUrl;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
 

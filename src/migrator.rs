@@ -10,8 +10,9 @@ use tempdir::TempDir;
 
 use crate::{
     bitbucket::{self},
+    config::CONFIG,
     github::{self, TeamRepositoryPermission},
-    spinner, CONFIG,
+    spinner,
 };
 
 use anyhow::{anyhow, Context};

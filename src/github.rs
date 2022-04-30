@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use crate::CONFIG;
+use crate::config::CONFIG;
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
