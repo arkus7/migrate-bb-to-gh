@@ -23,7 +23,7 @@ where
         }
     }
 
-    pub fn items(&mut self, items: &[&'a T]) -> &mut Self {
+    pub fn items(&mut self, items: &'a [T]) -> &mut Self {
         for item in items {
             self.items.push(item);
         }
