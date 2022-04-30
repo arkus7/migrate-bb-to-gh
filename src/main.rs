@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use migrate_bb_to_gh::prompts::FuzzySelect;
-
 use clap::{CommandFactory, Parser, Subcommand};
 use migrate_bb_to_gh::wizard::Wizard;
 use migrate_bb_to_gh::{circleci, migrator};

@@ -1,5 +1,4 @@
 use super::default_theme;
-use dialoguer::FuzzySelect as InnerFuzzySelect;
 use std::fmt::Display;
 use std::io;
 
@@ -45,7 +44,9 @@ where
     }
 
     pub fn interact_opt(&self) -> io::Result<Option<&'a T>> {
-        let idx = InnerFuzzySelect::with_theme(&default_theme())
+        use dialoguer::FuzzySelect;
+
+        let idx = FuzzySelect::with_theme(&default_theme())
             .with_prompt(format!(
                 "{prompt}\n{tip}",
                 prompt = &self.prompt,
