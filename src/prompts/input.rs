@@ -30,7 +30,7 @@ pub struct Input {
 }
 
 impl Input<> {
-    pub fn with_prompt(prompt: &str) -> Self {
+    pub fn with_prompt<S: Into<String>>(prompt: S) -> Self {
         Self {
             prompt: prompt.into(),
             initial_text: "".into(),

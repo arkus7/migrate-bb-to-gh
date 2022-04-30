@@ -15,7 +15,7 @@ impl<'a, T> FuzzySelect<'a, T>
 where
     T: 'a + Display,
 {
-    pub fn with_prompt(prompt: &str) -> Self {
+    pub fn with_prompt<S: Into<String>>(prompt: S) -> Self {
         Self {
             items: vec![],
             prompt: prompt.into(),

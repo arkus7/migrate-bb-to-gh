@@ -6,7 +6,7 @@ pub struct Confirm {
 }
 
 impl Confirm {
-    pub fn with_prompt(prompt: &str) -> Self {
+    pub fn with_prompt<S: Into<String>>(prompt: S) -> Self {
         Self {
             prompt: prompt.into(),
         }
