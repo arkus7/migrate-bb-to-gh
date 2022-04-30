@@ -1,7 +1,5 @@
 use std::{collections::HashSet, fs::File, path::PathBuf};
 
-use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, MultiSelect, Select};
-
 use crate::{
     bitbucket::{self, Repository},
     github::{self, TeamRepositoryPermission},
@@ -9,11 +7,11 @@ use crate::{
     spinner,
 };
 
+use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
 use anyhow::{anyhow, bail};
 
 pub struct Wizard {
     output_path: PathBuf,
-    theme: ColorfulTheme,
     version: String,
 }
 
@@ -27,7 +25,6 @@ impl Wizard {
     pub fn new(output_path: PathBuf, version: &str) -> Self {
         Self {
             output_path,
-            theme: ColorfulTheme::default(),
             version: version.to_owned(),
         }
     }
@@ -76,12 +73,11 @@ impl Wizard {
                 .collect::<Vec<_>>()
                 .join(", ");
             let msg = format!("The following repositories already exist in GitHub: {}\nDo you want to update them?", intersection_names);
-            let overwrite = Select::with_theme(&self.theme)
-                .with_prompt(msg)
-                .item("Update existing repositories")
-                .item("Skip existing repositories")
+            let options = ["Update existing repositories", "Skip existing repositories"];
+            let overwrite = Select::with_prompt(msg)
+                .items(&options)
                 .default(1)
-                .interact()?;
+                .interact_idx()?;
             match overwrite {
                 0 => repositories,
                 1 => repositories
@@ -109,9 +105,10 @@ impl Wizard {
             )
         }
 
-        let migrate_repos = Confirm::with_theme(&self.theme)
-            .with_prompt("Do you want to mirror selected repositories from Bitbucket to GitHub?")
-            .interact()?;
+        let migrate_repos = Confirm::with_prompt(
+            "Do you want to mirror selected repositories from Bitbucket to GitHub?",
+        )
+        .interact()?;
         if migrate_repos {
             let migrate_action = Action::MigrateRepositories {
                 repositories: repositories.iter().map(|r| r.clone().into()).collect(),
@@ -126,15 +123,14 @@ impl Wizard {
         println!("These teams already exist on GitHub:");
         teams.iter().for_each(|t| println!("  - {}", t.name));
 
-        let create_team_confirm = Confirm::with_theme(&self.theme)
-            .with_prompt("Do you want to create a new team for selected repositories?")
-            .interact()?;
+        let create_team_confirm =
+            Confirm::with_prompt("Do you want to create a new team for selected repositories?")
+                .interact()?;
         let create_team_actions = if create_team_confirm {
             let mut team_name: String;
             loop {
-                team_name = Input::with_theme(&self.theme)
-                    .with_prompt("Team name")
-                    .with_initial_text(&project.name)
+                team_name = Input::with_prompt("Team name")
+                    .initial_text(&project.name)
                     .interact()?;
 
                 if teams.iter().all(|t| t.name != team_name) {
@@ -147,17 +143,15 @@ impl Wizard {
             let team_slug = Wizard::team_slug(&team_name);
             let people = github::get_org_members().await?;
 
-            let members_selection = MultiSelect::with_theme(&self.theme)
-                .with_prompt(format!(
+            let members = MultiSelect::with_prompt(format!(
                     "Select members for the '{}' team\n(include yourself if you should be part of the team)",
                     &team_name
                 ))
                 .items(&people)
                 .interact()?;
 
-            let members: Vec<String> = members_selection
+            let members: Vec<String> = members
                 .into_iter()
-                .flat_map(|idx| people.get(idx))
                 .map(|m| m.login.clone())
                 .collect::<Vec<_>>();
 
@@ -179,20 +173,13 @@ impl Wizard {
 
         actions.extend(create_team_actions);
 
-        let additional_teams = Confirm::with_theme(&self.theme)
-            .with_prompt("Do you want to add access for other teams to these repositories?\n(Consider adding tech-team for those repositories)")
+        let additional_teams = Confirm::with_prompt("Do you want to add access for other teams to these repositories?\n(Consider adding tech-team for those repositories)")
             .interact()?;
 
         if additional_teams {
-            let team_selection = MultiSelect::with_theme(&self.theme)
-                .with_prompt("Select teams")
+            let teams = MultiSelect::with_prompt("Select teams")
                 .items(&teams)
                 .interact()?;
-
-            let teams = team_selection
-                .into_iter()
-                .flat_map(|idx| teams.get(idx))
-                .collect::<Vec<_>>();
 
             let permission_actions = teams.iter().flat_map(|team| {
                 self.select_permissions_action(&team.name, Some(&team.slug), &repositories_names)
@@ -201,16 +188,16 @@ impl Wizard {
             actions.extend(permission_actions);
         }
 
-        let change_branches = Confirm::with_theme(&self.theme)
-            .with_prompt("Do you want to change default branches of selected repositories?")
-            .interact()?;
+        let change_branches = Confirm::with_prompt(
+            "Do you want to change default branches of selected repositories?",
+        )
+        .interact()?;
 
         if change_branches {
-            let for_change = MultiSelect::with_theme(&self.theme)
-                .with_prompt("Select repositories to change the default branch")
-                .items(&repositories)
-                .interact()?;
-            let for_change = for_change.iter().flat_map(|idx| repositories.get(*idx));
+            let for_change =
+                MultiSelect::with_prompt("Select repositories to change the default branch")
+                    .items(&repositories)
+                    .interact()?;
             for repo in for_change {
                 let spinner = spinner::create_spinner(format!(
                     "Fetching branches for '{}' repository...",
@@ -232,15 +219,13 @@ impl Wizard {
                     _ => 0,
                 };
 
-                let branch = FuzzySelect::with_theme(&self.theme)
-                    .with_prompt(format!(
-                        "Select new default branch for '{}' repository",
-                        repo.full_name
-                    ))
-                    .items(&branches)
-                    .default(default_idx)
-                    .interact()?;
-                let selected_branch = branches.get(branch).expect("Invalid branch selected");
+                let selected_branch = FuzzySelect::with_prompt(format!(
+                    "Select new default branch for '{}' repository",
+                    repo.full_name
+                ))
+                .items(&branches)
+                .default(default_idx)
+                .interact()?;
                 let action = Action::SetRepositoryDefaultBranch {
                     repository_name: repo.full_name.clone(),
                     branch: selected_branch.name.clone(),
@@ -264,24 +249,21 @@ impl Wizard {
         team_slug: Option<&str>,
         repositories_names: &[String],
     ) -> Result<Action, anyhow::Error> {
-        let permission = Select::with_theme(&self.theme)
-            .with_prompt(format!(
-                "Select permission to the repositories for '{}' team",
-                &team_name
-            ))
-            .item("Read")
-            .item("Triage")
-            .item("Write")
-            .item("Maintain")
-            .default(2)
-            .interact()?;
-        let permission = match permission {
-            0 => TeamRepositoryPermission::Pull,
-            1 => TeamRepositoryPermission::Triage,
-            2 => TeamRepositoryPermission::Push,
-            3 => TeamRepositoryPermission::Maintain,
-            _ => unreachable!(),
-        };
+        let permissions = vec![
+            TeamRepositoryPermission::Pull,
+            TeamRepositoryPermission::Triage,
+            TeamRepositoryPermission::Push,
+            TeamRepositoryPermission::Maintain,
+        ];
+        let permission = Select::with_prompt(format!(
+            "Select permission to the repositories for '{}' team",
+            &team_name
+        ))
+        .items(&permissions)
+        .default(2)
+        .interact()?
+        .clone();
+
         Ok(Action::AssignRepositoriesToTeam {
             team_name: team_name.to_string(),
             team_slug: team_slug.map_or(Wizard::team_slug(team_name), |s| s.to_owned()),
@@ -302,21 +284,15 @@ impl Wizard {
             repositories.len(),
             project
         ));
-        let selection = MultiSelect::with_theme(&self.theme)
-            .with_prompt(format!(
-                "Select repositories from {} project\n[Space = select, Enter = continue]",
-                project
-            ))
-            .items(&repositories)
-            .interact()?;
-        if selection.is_empty() {
+        let repositories =
+            MultiSelect::with_prompt(format!("Select repositories from {} project", project))
+                .items(&repositories)
+                .interact()?;
+        if repositories.is_empty() {
             return Err(anyhow!("At least one repository must be selected"));
         }
-        let repositories: Vec<Repository> = selection
-            .into_iter()
-            .flat_map(|idx| repositories.get(idx))
-            .cloned()
-            .collect::<Vec<_>>();
+
+        let repositories = repositories.into_iter().cloned().collect();
 
         Ok(repositories)
     }
@@ -325,23 +301,18 @@ impl Wizard {
         let spinner = spinner::create_spinner("Fetching projects from Bitbucket...");
         let projects = bitbucket::get_projects().await?;
         spinner.finish_with_message("Fetched!");
-        let selection = FuzzySelect::with_theme(&self.theme)
-            .with_prompt("Select project\n[You can fuzzy search here by typing]")
+        let project = FuzzySelect::with_prompt("Select project")
             .items(&projects)
             .default(0)
             .interact()
             .expect("at least 1 project must be selected");
-        let project = projects
-            .get(selection)
-            .expect("No project selected")
-            .clone();
-        Ok(project)
+
+        Ok(project.clone())
     }
 
     fn save_migration_file(&self, migration: &Migration) -> Result<(), anyhow::Error> {
         if self.output_path.exists() {
-            let overwrite = Confirm::with_theme(&self.theme)
-                .with_prompt("Migration file already exists. Overwrite?")
+            let overwrite = Confirm::with_prompt("Migration file already exists. Overwrite?")
                 .default(false)
                 .interact()?;
 
