@@ -9,8 +9,8 @@ pub struct Select<'a, T> {
 }
 
 impl<'a, T> Select<'a, T>
-    where
-        T: 'a + Display,
+where
+    T: 'a + Display,
 {
     pub fn with_prompt<S: Into<String>>(prompt: S) -> Self {
         Self {
@@ -20,10 +20,15 @@ impl<'a, T> Select<'a, T>
         }
     }
 
-    pub fn items(&mut self, items: &'a [&'a T]) -> &mut Self {
+    pub fn items(&mut self, items: &'a [T]) -> &mut Self {
         for item in items {
             self.items.push(item);
         }
+        self
+    }
+
+    pub fn item(&mut self, item: &'a T) -> &mut Self {
+        self.items.push(item.into());
         self
     }
 
