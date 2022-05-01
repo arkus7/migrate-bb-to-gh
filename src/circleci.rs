@@ -480,7 +480,7 @@ pub mod wizard {
             let config = base64::decode_config(config.content.replace('\n', ""), base64::STANDARD)?;
             let config = std::str::from_utf8(&config)?;
 
-            let config = super::config::Config::from_str(config)?;
+            let config = Config::from_str(config)?;
 
             Ok(config)
         }
