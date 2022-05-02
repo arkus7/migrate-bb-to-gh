@@ -90,14 +90,14 @@ impl Display for Branch {
     }
 }
 
-pub(crate) struct BitbucketApi<'a> {
-    config: &'a BitbucketConfig,
+pub(crate) struct BitbucketApi {
+    config: BitbucketConfig,
 }
 
-impl<'a> BitbucketApi<'a> {
-    pub fn new(config: &'a BitbucketConfig) -> Self {
+impl BitbucketApi {
+    pub fn new(config: &BitbucketConfig) -> Self {
         Self {
-            config
+            config: config.clone()
         }
     }
 
@@ -165,7 +165,7 @@ impl<'a> BitbucketApi<'a> {
     }
 }
 
-impl<'a> ApiClient for BitbucketApi<'a> {
+impl ApiClient for BitbucketApi {
     fn basic_auth(&self) -> Option<BasicAuth> {
         Some(BasicAuth::new(&self.config.username, &self.config.password))
     }

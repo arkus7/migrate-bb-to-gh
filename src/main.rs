@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::{CommandFactory, Parser, Subcommand};
 use migrate_bb_to_gh::wizard::Wizard;
 use migrate_bb_to_gh::{circleci, migrator};
+use migrate_bb_to_gh::migrator::Migrator;
 
 /// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
 #[derive(Parser)]
@@ -79,7 +80,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 "Migration file saved to {:?}",
                 std::fs::canonicalize(&res.migration_file_path)?
             );
-            println!("{}", migrator::describe_actions(&res.actions));
+            // println!("{}", migrator::describe_actions(&res.actions));
             println!(
                 "Run '{} migrate {}' to start migration process",
                 name,
@@ -87,7 +88,8 @@ async fn main() -> Result<(), anyhow::Error> {
             );
         }
         Commands::Migrate { migration_file } => {
-            migrator::migrate(migration_file, version).await?;
+            let migrator = Migrator::new(migration_file, version);
+            migrator.migrate(migration_file, version).await?;
         }
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {

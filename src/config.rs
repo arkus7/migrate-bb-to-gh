@@ -18,28 +18,28 @@ pub struct Config {
     pub git: GitConfig,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BitbucketConfig {
     pub username: String,
     pub password: String,
     pub workspace_name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GitHubConfig {
     pub username: String,
     pub password: String,
     pub organization_name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CircleCiConfig {
     pub token: String,
     pub bitbucket_org_id: String,
     pub github_org_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GitConfig {
     pub push_ssh_key: String,
     pub pull_ssh_key: String,

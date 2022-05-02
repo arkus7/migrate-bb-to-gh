@@ -11,11 +11,13 @@ use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
 use anyhow::{anyhow, bail};
 use crate::bitbucket::BitbucketApi;
 use crate::config::CONFIG;
+use crate::github::GithubApi;
 
-pub struct Wizard<'a> {
+pub struct Wizard {
     output_path: PathBuf,
     version: String,
-    bitbucket: BitbucketApi<'a>
+    bitbucket: BitbucketApi,
+    github: GithubApi,
 }
 
 #[derive(Debug)]
@@ -24,12 +26,13 @@ pub struct WizardResult {
     pub migration_file_path: PathBuf,
 }
 
-impl<'a> Wizard<'a> {
+impl Wizard {
     pub fn new(output_path: PathBuf, version: &str) -> Self {
         Self {
             output_path,
             version: version.to_owned(),
-            bitbucket: BitbucketApi::new(&CONFIG.bitbucket)
+            bitbucket: BitbucketApi::new(&CONFIG.bitbucket),
+            github: GithubApi::new(&CONFIG.github),
         }
     }
 
@@ -45,7 +48,7 @@ impl<'a> Wizard<'a> {
             .collect();
 
         let spinner = spinner::create_spinner("Fetching existing repositories from GitHub...");
-        let github_repositories = github::get_repositories().await?;
+        let github_repositories = self.github.get_repositories().await?;
         spinner.finish_with_message(format!(
             "Fetched {} existing repositories from GitHub!",
             github_repositories.len()
@@ -121,7 +124,7 @@ impl<'a> Wizard<'a> {
         }
 
         let spinner = spinner::create_spinner("Fetching teams...");
-        let teams = github::get_teams().await?;
+        let teams = self.github.get_teams().await?;
         spinner.finish_with_message(format!("Fetched {} teams from GitHub", teams.len()));
 
         println!("These teams already exist on GitHub:");
@@ -145,7 +148,7 @@ impl<'a> Wizard<'a> {
             }
 
             let team_slug = Wizard::team_slug(&team_name);
-            let people = github::get_org_members().await?;
+            let people = self.github.get_org_members().await?;
 
             let members = MultiSelect::with_prompt(format!(
                     "Select members for the '{}' team\n(include yourself if you should be part of the team)",

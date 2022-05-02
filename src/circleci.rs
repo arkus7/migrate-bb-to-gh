@@ -20,13 +20,15 @@ pub mod wizard {
     };
     use crate::bitbucket::BitbucketApi;
     use crate::config::CONFIG;
+    use crate::github::GithubApi;
 
     use super::{api, config::Config};
 
-    pub struct Wizard<'a> {
+    pub struct Wizard {
         output: PathBuf,
         version: String,
-        bitbucket: BitbucketApi<'a>
+        bitbucket: BitbucketApi,
+        github: GithubApi,
     }
 
     pub struct WizardResult {
@@ -34,12 +36,13 @@ pub mod wizard {
         pub migration_file_path: PathBuf,
     }
 
-    impl<'a> Wizard<'a> {
+    impl Wizard {
         pub fn new(output: &Path, version: &str) -> Self {
             Self {
                 output: output.to_path_buf(),
                 version: version.to_owned(),
                 bitbucket: BitbucketApi::new(&CONFIG.bitbucket),
+                github: GithubApi::new(&CONFIG.github),
             }
         }
 
@@ -237,7 +240,7 @@ pub mod wizard {
 
         async fn select_team(&self) -> anyhow::Result<Team> {
             let spinner = spinner::create_spinner("Fetching teams...");
-            let teams = github::get_teams().await?;
+            let teams = self.github.get_teams().await?;
             spinner.finish_with_message(format!("Fetched {} teams", teams.len()));
 
             let team = FuzzySelect::with_prompt("Select team")
@@ -250,11 +253,11 @@ pub mod wizard {
 
         async fn select_repositories(
             &self,
-            team: &github::Team,
+            team: &Team,
         ) -> anyhow::Result<Vec<Repository>> {
             let spinner =
                 spinner::create_spinner(format!("Fetching repositories from {} team", &team.name));
-            let repositories = github::get_team_repositories(&team.slug).await?;
+            let repositories = self.github.get_team_repositories(&team.slug).await?;
             spinner.finish_with_message("Fetched!");
             let selection =
                 MultiSelect::with_prompt(format!("Select repositories from {} team", &team.name))
@@ -263,7 +266,7 @@ pub mod wizard {
             if selection.is_empty() {
                 return Err(anyhow!("At least one repository must be selected"));
             }
-            let repositories: Vec<github::Repository> =
+            let repositories: Vec<Repository> =
                 selection.into_iter().cloned().collect::<Vec<_>>();
             Ok(repositories)
         }
@@ -275,7 +278,7 @@ pub mod wizard {
             const CONFIG_PATH: &str = ".circleci/config.yml";
 
             let spinner = spinner::create_spinner(format!("Checking {} config", &repo.name));
-            let config_file = github::get_file_contents(&repo.full_name, CONFIG_PATH).await;
+            let config_file = self.github.get_file_contents(&repo.full_name, CONFIG_PATH).await;
             match config_file {
                 Result::Ok(config_file) => {
                     spinner.finish_with_message(format!(
@@ -284,7 +287,7 @@ pub mod wizard {
                     ));
                     Ok(Some(config_file))
                 }
-                Result::Err(_) => {
+                Err(_) => {
                     spinner.finish_with_message(format!(
                         "No CircleCI config found for {}, skipping...",
                         &repo.name
@@ -456,7 +459,7 @@ pub mod wizard {
             }
 
             let spinner = spinner::create_spinner("Fetching branches from GitHub...");
-            let branches = github::get_repo_branches(&repo.full_name).await?;
+            let branches = self.github.get_repo_branches(&repo.full_name).await?;
             spinner.finish_with_message(format!("Found {} branches", branches.len()));
 
             let branches = branches
