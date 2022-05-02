@@ -1,8 +1,9 @@
 use std::fmt::{Display, Formatter};
+use reqwest::header::HeaderMap;
 
-use crate::config::CONFIG;
-use reqwest::IntoUrl;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use crate::config::{BitbucketConfig};
+use serde::{Deserialize, Serialize};
+use crate::api::{ApiClient, BasicAuth};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Project {
@@ -89,79 +90,87 @@ impl Display for Branch {
     }
 }
 
-pub async fn get_projects() -> Result<Vec<Project>, anyhow::Error> {
-    let url = format!(
-        "https://api.bitbucket.org/2.0/workspaces/{workspace}/projects",
-        workspace = &CONFIG.bitbucket.workspace_name
-    );
-    let mut projects_res: ProjectResponse = send_get_request(url).await?;
+pub(crate) struct BitbucketApi<'a> {
+    config: &'a BitbucketConfig,
+}
 
-    let mut projects = projects_res.values.clone();
-    while projects_res.next.is_some() {
-        projects_res = send_get_request(projects_res.next.unwrap()).await?;
-        projects.append(&mut projects_res.values);
+impl<'a> BitbucketApi<'a> {
+    pub fn new(config: &'a BitbucketConfig) -> Self {
+        Self {
+            config
+        }
     }
 
-    Ok(projects)
-}
+    pub async fn get_projects(&self) -> Result<Vec<Project>, anyhow::Error> {
+        let url = format!(
+            "https://api.bitbucket.org/2.0/workspaces/{workspace}/projects",
+            workspace = &self.config.workspace_name
+        );
+        let mut projects_res: ProjectResponse = self.get(url).await?;
 
-pub async fn get_project_repositories(project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
-    let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = &CONFIG.bitbucket.workspace_name, key = project_key, pagelen = 100);
-    let res: RepositoriesResponse = send_get_request(url).await?;
+        let mut projects = projects_res.values.clone();
+        while projects_res.next.is_some() {
+            projects_res = self.get(projects_res.next.unwrap()).await?;
+            projects.append(&mut projects_res.values);
+        }
 
-    Ok(res.values)
-}
-
-pub async fn get_repository_branches(full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
-    let url = format!("https://api.bitbucket.org/2.0/repositories/{full_repo_name}/refs/branches?pagelen={pagelen}", full_repo_name = full_repo_name, pagelen = 100);
-
-    let mut branches_res: BranchesResponse = send_get_request(url).await?;
-
-    let mut branches = branches_res.values.clone();
-    while branches_res.next.is_some() {
-        branches_res = send_get_request(branches_res.next.unwrap()).await?;
-        branches.append(&mut branches_res.values);
+        Ok(projects)
     }
 
-    Ok(branches)
-}
+    pub async fn get_project_repositories(&self, project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
+        let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = &self.config.workspace_name, key = project_key, pagelen = 100);
+        let res: RepositoriesResponse = self.get(url).await?;
 
-pub async fn get_repository(repo_name: &str) -> anyhow::Result<Option<Repository>> {
-    let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{repo_name}",
-        repo_name = repo_name
-    );
-    let res = send_get_request(url).await;
+        Ok(res.values)
+    }
 
-    match res {
-        Ok(res) => Ok(Some(res)),
-        Err(err) => match err.status() {
-            Some(status) => {
-                if status.as_u16() == 404 {
-                    Ok(None)
-                } else {
-                    Err(anyhow::anyhow!(
+    pub async fn get_repository_branches(&self, full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
+        let url = format!("https://api.bitbucket.org/2.0/repositories/{full_repo_name}/refs/branches?pagelen={pagelen}", full_repo_name = full_repo_name, pagelen = 100);
+
+        let mut branches_res: BranchesResponse = self.get(url).await?;
+
+        let mut branches = branches_res.values.clone();
+        while branches_res.next.is_some() {
+            branches_res = self.get(branches_res.next.unwrap()).await?;
+            branches.append(&mut branches_res.values);
+        }
+
+        Ok(branches)
+    }
+
+    pub async fn get_repository(&self, repo_name: &str) -> anyhow::Result<Option<Repository>> {
+        let url = format!(
+            "https://api.bitbucket.org/2.0/repositories/{repo_name}",
+            repo_name = repo_name
+        );
+        let res = self.get(url).await;
+
+        match res {
+            Ok(res) => Ok(Some(res)),
+            Err(err) => match err.status() {
+                Some(status) => {
+                    if status.as_u16() == 404 {
+                        Ok(None)
+                    } else {
+                        Err(anyhow::anyhow!(
                         "Error: Repository {} was not found in Bitbucket account: {}",
                         &repo_name,
                         err
                     ))
+                    }
                 }
-            }
-            None => Err(anyhow::anyhow!("Unknown error: {}", err)),
-        },
+                None => Err(anyhow::anyhow!("Unknown error: {}", err)),
+            },
+        }
     }
 }
 
-async fn send_get_request<T: DeserializeOwned, U: IntoUrl>(url: U) -> Result<T, reqwest::Error> {
-    let client = reqwest::Client::new();
-    let res = client
-        .get(url)
-        .basic_auth(&CONFIG.bitbucket.username, Some(&CONFIG.bitbucket.password))
-        .send()
-        .await?
-        .error_for_status()?
-        .json::<T>()
-        .await?;
+impl<'a> ApiClient for BitbucketApi<'a> {
+    fn basic_auth(&self) -> Option<BasicAuth> {
+        Some(BasicAuth::new(&self.config.username, &self.config.password))
+    }
 
-    Ok(res)
+    fn headers(&self) -> Option<HeaderMap> {
+        None
+    }
 }
