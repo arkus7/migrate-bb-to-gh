@@ -18,12 +18,15 @@ pub mod wizard {
         github::{self, FileContents, Repository, Team},
         spinner,
     };
+    use crate::bitbucket::BitbucketApi;
+    use crate::config::CONFIG;
 
     use super::{api, config::Config};
 
-    pub struct Wizard {
+    pub struct Wizard<'a> {
         output: PathBuf,
         version: String,
+        bitbucket: BitbucketApi<'a>
     }
 
     pub struct WizardResult {
@@ -31,11 +34,12 @@ pub mod wizard {
         pub migration_file_path: PathBuf,
     }
 
-    impl Wizard {
+    impl<'a> Wizard<'a> {
         pub fn new(output: &Path, version: &str) -> Self {
             Self {
                 output: output.to_path_buf(),
                 version: version.to_owned(),
+                bitbucket: BitbucketApi::new(&CONFIG.bitbucket),
             }
         }
 
@@ -126,7 +130,7 @@ pub mod wizard {
                     "Fetching {} repository from Bitbucket",
                     &repository.name
                 ));
-                let bb_repo = bitbucket::get_repository(&repository.full_name).await?;
+                let bb_repo = self.bitbucket.get_repository(&repository.full_name).await?;
                 spinner.finish_with_message(format!("Found {:?} repository in Bitbucket", bb_repo));
                 if bb_repo.is_none() {
                     let manually_map = Confirm::with_prompt(format!("No repository named {} found in Bitbucket, do you want to manually map it?", &repository.name))
@@ -146,7 +150,7 @@ pub mod wizard {
                         project
                     ));
                     let repositories =
-                        bitbucket::get_project_repositories(project.get_key()).await?;
+                        self.bitbucket.get_project_repositories(project.get_key()).await?;
                     spinner.finish_with_message(format!(
                         "Fetched {} repositories from {} project!",
                         repositories.len(),
@@ -219,7 +223,7 @@ pub mod wizard {
 
         async fn select_project(&self) -> Result<bitbucket::Project, anyhow::Error> {
             let spinner = spinner::create_spinner("Fetching projects from Bitbucket...");
-            let projects = bitbucket::get_projects().await?;
+            let projects = self.bitbucket.get_projects().await?;
             spinner.finish_with_message("Fetched!");
             let project = FuzzySelect::with_prompt("Select project")
                 .items(&projects)

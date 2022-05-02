@@ -9,10 +9,13 @@ use crate::{
 
 use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
 use anyhow::{anyhow, bail};
+use crate::bitbucket::BitbucketApi;
+use crate::config::CONFIG;
 
-pub struct Wizard {
+pub struct Wizard<'a> {
     output_path: PathBuf,
     version: String,
+    bitbucket: BitbucketApi<'a>
 }
 
 #[derive(Debug)]
@@ -21,11 +24,12 @@ pub struct WizardResult {
     pub migration_file_path: PathBuf,
 }
 
-impl Wizard {
+impl<'a> Wizard<'a> {
     pub fn new(output_path: PathBuf, version: &str) -> Self {
         Self {
             output_path,
             version: version.to_owned(),
+            bitbucket: BitbucketApi::new(&CONFIG.bitbucket)
         }
     }
 
@@ -203,7 +207,7 @@ impl Wizard {
                     "Fetching branches for '{}' repository...",
                     repo.full_name
                 ));
-                let branches = bitbucket::get_repository_branches(&repo.full_name).await?;
+                let branches = self.bitbucket.get_repository_branches(&repo.full_name).await?;
                 spinner.finish_with_message(format!(
                     "Fetched {} branches for '{}' repository!",
                     branches.len(),
@@ -278,7 +282,7 @@ impl Wizard {
     ) -> Result<Vec<Repository>, anyhow::Error> {
         let spinner =
             spinner::create_spinner(format!("Fetching repositories from {} project", project));
-        let repositories = bitbucket::get_project_repositories(project.get_key()).await?;
+        let repositories = self.bitbucket.get_project_repositories(project.get_key()).await?;
         spinner.finish_with_message(format!(
             "Fetched {} repositories from {} project!",
             repositories.len(),
@@ -299,7 +303,7 @@ impl Wizard {
 
     async fn select_project(&self) -> Result<bitbucket::Project, anyhow::Error> {
         let spinner = spinner::create_spinner("Fetching projects from Bitbucket...");
-        let projects = bitbucket::get_projects().await?;
+        let projects = self.bitbucket.get_projects().await?;
         spinner.finish_with_message("Fetched!");
         let project = FuzzySelect::with_prompt("Select project")
             .items(&projects)
