@@ -15,11 +15,12 @@ use crate::{
     bitbucket,
     circleci::{
         api::Context,
-        migrate::{Action, EnvVar, Migration},
+        migrate::{Migration},
     },
     github::{self, FileContents, Repository, Team},
     spinner,
 };
+use crate::circleci::action::{Action, EnvVar};
 
 use super::{api, config::Config};
 
