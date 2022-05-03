@@ -1,6 +1,10 @@
+mod models;
 use crate::config::CONFIG;
 use reqwest::IntoUrl;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
+use crate::circleci::api::models::{ContextOwnerBody, ContextsResponse, ContextVariablesResponse, CreateContextBody, EnvVarsResponse, ExportEnvironmentBody, StartPipelineBody, UpdateContextVariableBody};
+
+pub use models::{Context, ContextVariable, EnvVar};
 
 const AUTH_HEADER: &str = "Circle-Token";
 
@@ -23,81 +27,6 @@ impl Vcs {
             Vcs::GitHub => "gh",
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EnvVar {
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct EnvVarsResponse {
-    items: Vec<EnvVar>,
-    next_page_token: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Context {
-    pub name: String,
-    pub id: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ContextsResponse {
-    items: Vec<Context>,
-    next_page_token: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ContextVariablesResponse {
-    items: Vec<ContextVariable>,
-    next_page_token: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ContextVariable {
-    pub variable: String,
-    pub context_id: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ExportEnvironmentBody {
-    /// List of URLs to the projects where env variables should be exported to
-    projects: Vec<String>,
-    #[serde(rename = "env-vars")]
-    env_vars: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct StartPipelineBody<'a> {
-    branch: &'a str,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct FollowProjectBody<'a> {
-    branch: &'a str,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct FollowProjectResponse {
-    first_build: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct CreateContextBody {
-    name: String,
-    owner: ContextOwnerBody,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ContextOwnerBody {
-    id: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct UpdateContextVariableBody {
-    value: String,
 }
 
 pub async fn get_env_vars(vcs: Vcs, full_repo_name: &str) -> anyhow::Result<Vec<EnvVar>> {
