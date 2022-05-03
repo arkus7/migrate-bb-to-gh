@@ -57,3 +57,17 @@ impl Action {
         }
     }
 }
+
+pub fn describe_actions(actions: &[Action]) -> String {
+    let actions_list = actions
+        .iter()
+        .enumerate()
+        .map(|(idx, action)| format!("{}. {}", idx + 1, action.describe()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "There are {} actions to be done during migration:\n{}",
+        actions.len(),
+        actions_list
+    )
+}

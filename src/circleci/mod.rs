@@ -5,4 +5,5 @@ mod wizard;
 mod migrate;
 
 pub use wizard::{Wizard, WizardResult};
-pub use migrate::{describe_actions, migrate};
+pub use migrate::{Migrator};
+pub use action::describe_actions;

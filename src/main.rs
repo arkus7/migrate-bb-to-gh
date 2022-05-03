@@ -105,7 +105,8 @@ async fn main() -> Result<(), anyhow::Error> {
                 );
             }
             CircleCiCommands::Migrate { migration_file } => {
-                circleci::migrate(migration_file, version).await?;
+                let migrator = circleci::Migrator::new(migration_file, version);
+                let _ = migrator.migrate().await?;
             }
         },
     }
