@@ -8,17 +8,11 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 
-use crate::{
-    bitbucket::{self},
-    config::CONFIG,
-    github::{self, TeamRepositoryPermission},
-    spinner,
-};
-
+use crate::{config::CONFIG, github::TeamRepositoryPermission, spinner};
 
 use crate::github::GithubApi;
+use crate::repositories::action::{describe_actions, Action, Repository};
 use anyhow::{anyhow, Context};
-use crate::repositories::action::{Action, describe_actions, Repository};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -42,9 +36,9 @@ pub struct Migrator {
 }
 
 impl Migrator {
-    pub fn new(migration_file: &PathBuf, version: &str) -> Self {
+    pub fn new(migration_file: &Path, version: &str) -> Self {
         Self {
-            migration_file: migration_file.clone(),
+            migration_file: migration_file.to_path_buf(),
             version: version.to_string(),
             github: GithubApi::new(&CONFIG.github),
         }

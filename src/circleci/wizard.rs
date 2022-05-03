@@ -9,19 +9,16 @@ use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect};
 use anyhow::{anyhow, Ok};
 
 use crate::bitbucket::BitbucketApi;
+use crate::circleci::action::{Action, EnvVar};
+use crate::circleci::api::CircleCiApi;
 use crate::config::CONFIG;
 use crate::github::GithubApi;
 use crate::{
     bitbucket,
-    circleci::{
-        api::Context,
-        migrate::{Migration},
-    },
-    github::{self, FileContents, Repository, Team},
+    circleci::{api::Context, migrator::Migration},
+    github::{FileContents, Repository, Team},
     spinner,
 };
-use crate::circleci::action::{Action, EnvVar};
-use crate::circleci::api::CircleCiApi;
 
 use super::{api, config::Config};
 
@@ -118,12 +115,13 @@ impl Wizard {
             "Fetching {} environment variables",
             &repository.name
         ));
-        let mut env_vars: Vec<_> =
-            self.circleci.get_env_vars(api::Vcs::Bitbucket, &repository.full_name)
-                .await?
-                .into_iter()
-                .map(|e| e.name)
-                .collect();
+        let mut env_vars: Vec<_> = self
+            .circleci
+            .get_env_vars(api::Vcs::Bitbucket, &repository.full_name)
+            .await?
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
         spinner.finish_with_message(format!(
             "Found {} environment variables in '{}' project",
             env_vars.len(),
@@ -139,8 +137,11 @@ impl Wizard {
             let bb_repo = self.bitbucket.get_repository(&repository.full_name).await?;
             spinner.finish_with_message(format!("Found {:?} repository in Bitbucket", bb_repo));
             if bb_repo.is_none() {
-                let manually_map = Confirm::with_prompt(format!("No repository named {} found in Bitbucket, do you want to manually map it?", &repository.name))
-                    .interact()?;
+                let manually_map = Confirm::with_prompt(format!(
+                    "No repository named {} found in Bitbucket, do you want to manually map it?",
+                    &repository.name
+                ))
+                .interact()?;
 
                 if !manually_map {
                     println!(
@@ -164,12 +165,10 @@ impl Wizard {
                     repositories.len(),
                     project
                 ));
-                let bb_repo = FuzzySelect::with_prompt(format!(
-                    "Select repository from {} project",
-                    project
-                ))
-                    .items(&repositories)
-                    .interact_opt()?;
+                let bb_repo =
+                    FuzzySelect::with_prompt(format!("Select repository from {} project", project))
+                        .items(&repositories)
+                        .interact_opt()?;
 
                 if bb_repo.is_none() {
                     println!("No repository selected, skipping...");
@@ -181,8 +180,10 @@ impl Wizard {
                     "Fetching {} environment variables",
                     &bb_repo.name
                 ));
-                let bb_env_vars =
-                    self.circleci.get_env_vars(api::Vcs::Bitbucket, &bb_repo.full_name).await?;
+                let bb_env_vars = self
+                    .circleci
+                    .get_env_vars(api::Vcs::Bitbucket, &bb_repo.full_name)
+                    .await?;
                 spinner.finish_with_message(format!(
                     "Found {} env variables for {} repository",
                     bb_env_vars.len(),
@@ -211,9 +212,11 @@ impl Wizard {
                 .collect::<Vec<_>>()
                 .join("\n")
         );
-        let move_envs = Confirm::with_prompt("Do you want to move the environment variables from Bitbucket to GitHub organization?")
-            .default(true)
-            .interact()?;
+        let move_envs = Confirm::with_prompt(
+            "Do you want to move the environment variables from Bitbucket to GitHub organization?",
+        )
+        .default(true)
+        .interact()?;
         let action = if move_envs {
             let env_vars = self.select_env_vars(&env_vars).await?;
             let action = Action::MoveEnvironmentalVariables {
@@ -272,10 +275,7 @@ impl Wizard {
         Ok(repositories)
     }
 
-    async fn check_config_exists(
-        &self,
-        repo: &Repository,
-    ) -> anyhow::Result<Option<FileContents>> {
+    async fn check_config_exists(&self, repo: &Repository) -> anyhow::Result<Option<FileContents>> {
         const CONFIG_PATH: &str = ".circleci/config.yml";
 
         let spinner = spinner::create_spinner(format!("Checking {} config", &repo.name));
@@ -305,8 +305,8 @@ impl Wizard {
         let all = Confirm::with_prompt(
             "Do you want to move all environment variables? (No = select which to move)",
         )
-            .default(true)
-            .interact()?;
+        .default(true)
+        .interact()?;
 
         if all {
             Ok(env_vars.to_vec())
@@ -441,8 +441,8 @@ impl Wizard {
             "Do you want to start a build for {} repository on CircleCI?",
             &repo.name
         ))
-            .default(true)
-            .interact()?;
+        .default(true)
+        .interact()?;
 
         if !confirm {
             return Ok(None);
@@ -452,8 +452,8 @@ impl Wizard {
             "Do you want to use default branch for build ({})?",
             &repo.default_branch
         ))
-            .default(true)
-            .interact()?;
+        .default(true)
+        .interact()?;
 
         if use_default_branch {
             return Ok(Some(Action::StartPipeline {
@@ -513,4 +513,3 @@ impl Wizard {
         Ok(())
     }
 }
-

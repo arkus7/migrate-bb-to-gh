@@ -1,11 +1,14 @@
 mod models;
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use crate::circleci::api::models::{
+    ContextOwnerBody, ContextVariablesResponse, ContextsResponse, CreateContextBody,
+    EnvVarsResponse, ExportEnvironmentBody, StartPipelineBody, UpdateContextVariableBody,
+};
 use crate::config::{CircleCiConfig, CONFIG};
-use crate::circleci::api::models::{ContextOwnerBody, ContextsResponse, ContextVariablesResponse, CreateContextBody, EnvVarsResponse, ExportEnvironmentBody, StartPipelineBody, UpdateContextVariableBody};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
-pub use models::{Context, ContextVariable, EnvVar};
 use crate::api::{ApiClient, BasicAuth};
+pub use models::{Context, ContextVariable, EnvVar};
 
 const AUTH_HEADER: &str = "Circle-Token";
 
@@ -58,7 +61,11 @@ impl CircleCiApi {
         }
     }
 
-    pub async fn get_env_vars(&self, vcs: Vcs, full_repo_name: &str) -> anyhow::Result<Vec<EnvVar>> {
+    pub async fn get_env_vars(
+        &self,
+        vcs: Vcs,
+        full_repo_name: &str,
+    ) -> anyhow::Result<Vec<EnvVar>> {
         let project_slug = format!("{}/{}", vcs.slug_prefix(), full_repo_name);
         let url = format!(
             "https://circleci.com/api/v2/project/{project_slug}/envvar",
@@ -92,7 +99,10 @@ impl CircleCiApi {
         Ok(res.items)
     }
 
-    pub async fn get_context_variables(&self, context_id: &str) -> anyhow::Result<Vec<ContextVariable>> {
+    pub async fn get_context_variables(
+        &self,
+        context_id: &str,
+    ) -> anyhow::Result<Vec<ContextVariable>> {
         let url = format!(
             "https://circleci.com/api/v2/context/{context_id}/environment-variable",
             context_id = context_id

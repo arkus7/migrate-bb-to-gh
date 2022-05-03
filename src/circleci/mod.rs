@@ -1,9 +1,9 @@
 mod action;
 mod api;
 mod config;
+mod migrator;
 mod wizard;
-mod migrate;
 
-pub use wizard::{Wizard, WizardResult};
-pub use migrate::{Migrator};
 pub use action::describe_actions;
+pub use migrator::Migrator;
+pub use wizard::{Wizard, WizardResult};

@@ -28,7 +28,7 @@ where
     }
 
     pub fn item(&mut self, item: &'a T) -> &mut Self {
-        self.items.push(item.into());
+        self.items.push(item);
         self
     }
 

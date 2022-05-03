@@ -2,7 +2,7 @@ use std::{collections::HashSet, fs::File, path::PathBuf};
 
 use crate::{
     bitbucket::{self, Repository},
-    github::{TeamRepositoryPermission},
+    github::TeamRepositoryPermission,
     spinner,
 };
 
@@ -10,9 +10,9 @@ use crate::bitbucket::BitbucketApi;
 use crate::config::CONFIG;
 use crate::github::GithubApi;
 use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
-use anyhow::{anyhow, bail};
 use crate::repositories::action::Action;
 use crate::repositories::migrator::Migration;
+use anyhow::{anyhow, bail};
 
 pub struct Wizard {
     output_path: PathBuf,

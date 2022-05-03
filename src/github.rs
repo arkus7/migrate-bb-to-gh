@@ -2,9 +2,8 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use std::fmt::{Display, Formatter};
 
 use crate::api::{ApiClient, BasicAuth};
-use crate::config::{GitHubConfig, CONFIG};
-use reqwest::IntoUrl;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use crate::config::GitHubConfig;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]

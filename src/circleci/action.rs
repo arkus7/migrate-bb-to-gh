@@ -1,5 +1,3 @@
-use crate::circleci::api;
-use crate::spinner;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

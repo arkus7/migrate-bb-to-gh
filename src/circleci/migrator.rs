@@ -1,14 +1,14 @@
 use anyhow::{anyhow, Context};
-use std::{fs::File, path::Path};
 use std::path::PathBuf;
+use std::{fs::File, path::Path};
 
-use dialoguer::Confirm;
-use serde::{Deserialize, Serialize};
-use crate::circleci::action::{Action, describe_actions};
+use crate::circleci::action::{describe_actions, Action};
 use crate::circleci::api;
 use crate::circleci::api::CircleCiApi;
 use crate::config::CONFIG;
 use crate::spinner;
+use dialoguer::Confirm;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -32,14 +32,13 @@ pub struct Migrator {
 }
 
 impl Migrator {
-    pub fn new(migration_file: &PathBuf, version: &str) -> Self {
+    pub fn new(migration_file: &Path, version: &str) -> Self {
         Self {
-            migration_file: migration_file.clone(),
+            migration_file: migration_file.to_path_buf(),
             version: version.to_owned(),
             circleci: CircleCiApi::new(&CONFIG.circleci),
         }
     }
-
 
     pub async fn migrate(&self) -> anyhow::Result<()> {
         let file = File::open(&self.migration_file)?;
@@ -67,12 +66,10 @@ impl Migrator {
     }
 
     pub async fn run(&self, action: &Action) -> anyhow::Result<()> {
-        // FIXME: store circleci client inside migrator struct
-        let circleci = CircleCiApi::new(&CONFIG.circleci);
         match action {
             Action::CreateContext { name, variables } => {
                 let spinner = spinner::create_spinner(format!("Creating '{}' context", name));
-                let ctx = circleci.create_context(name, api::Vcs::GitHub).await?;
+                let ctx = self.circleci.create_context(name, api::Vcs::GitHub).await?;
                 spinner.finish_with_message(format!(
                     "Created context '{}' (id: {})",
                     &ctx.name, &ctx.id
@@ -83,7 +80,10 @@ impl Migrator {
                         "Adding '{}' variable to '{}' context",
                         &var.name, &name
                     ));
-                    let _ = circleci.add_context_variable(&ctx.id, &var.name, &var.value).await?;
+                    let _ = self
+                        .circleci
+                        .add_context_variable(&ctx.id, &var.name, &var.value)
+                        .await?;
                     spinner.finish_with_message(format!("Added '{}' variable", &var.name));
                 }
 
@@ -95,9 +95,10 @@ impl Migrator {
                 env_vars,
             } => {
                 let spinner = spinner::create_spinner(format!("Moving {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
-                let _ =
-                    circleci.export_environment(from_repository_name, to_repository_name, env_vars)
-                        .await?;
+                let _ = self
+                    .circleci
+                    .export_environment(from_repository_name, to_repository_name, env_vars)
+                    .await?;
                 spinner.finish_with_message(format!("Moved {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
                 Ok(())
             }
@@ -109,7 +110,10 @@ impl Migrator {
                     "Starting pipeline for {} on branch {}",
                     &repository_name, &branch
                 ));
-                let _ = circleci.start_pipeline(repository_name, branch).await?;
+                let _ = self
+                    .circleci
+                    .start_pipeline(repository_name, branch)
+                    .await?;
                 spinner.finish_with_message(format!(
                     "Started pipeline for {} on branch {}",
                     &repository_name, &branch

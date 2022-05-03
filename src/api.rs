@@ -1,11 +1,8 @@
-use anyhow::private::kind::TraitKind;
-use anyhow::Context;
 use async_trait::async_trait;
 use reqwest::header::HeaderMap;
 use reqwest::{IntoUrl, Method, RequestBuilder};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::fmt::format;
 
 pub(crate) struct BasicAuth<'a>(&'a str, &'a str);
 impl<'a> BasicAuth<'a> {

@@ -1,5 +1,5 @@
-use crate::github::TeamRepositoryPermission;
 use crate::bitbucket;
+use crate::github::TeamRepositoryPermission;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
