@@ -7,11 +7,11 @@ use crate::{
     spinner,
 };
 
-use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
-use anyhow::{anyhow, bail};
 use crate::bitbucket::BitbucketApi;
 use crate::config::CONFIG;
 use crate::github::GithubApi;
+use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
+use anyhow::{anyhow, bail};
 
 pub struct Wizard {
     output_path: PathBuf,
@@ -210,7 +210,10 @@ impl Wizard {
                     "Fetching branches for '{}' repository...",
                     repo.full_name
                 ));
-                let branches = self.bitbucket.get_repository_branches(&repo.full_name).await?;
+                let branches = self
+                    .bitbucket
+                    .get_repository_branches(&repo.full_name)
+                    .await?;
                 spinner.finish_with_message(format!(
                     "Fetched {} branches for '{}' repository!",
                     branches.len(),
@@ -285,7 +288,10 @@ impl Wizard {
     ) -> Result<Vec<Repository>, anyhow::Error> {
         let spinner =
             spinner::create_spinner(format!("Fetching repositories from {} project", project));
-        let repositories = self.bitbucket.get_project_repositories(project.get_key()).await?;
+        let repositories = self
+            .bitbucket
+            .get_project_repositories(project.get_key())
+            .await?;
         spinner.finish_with_message(format!(
             "Fetched {} repositories from {} project!",
             repositories.len(),

@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
 use reqwest::header::HeaderMap;
+use std::fmt::{Display, Formatter};
 
-use crate::config::{BitbucketConfig};
-use serde::{Deserialize, Serialize};
 use crate::api::{ApiClient, BasicAuth};
+use crate::config::BitbucketConfig;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Project {
@@ -97,7 +97,7 @@ pub(crate) struct BitbucketApi {
 impl BitbucketApi {
     pub fn new(config: &BitbucketConfig) -> Self {
         Self {
-            config: config.clone()
+            config: config.clone(),
         }
     }
 
@@ -117,14 +117,20 @@ impl BitbucketApi {
         Ok(projects)
     }
 
-    pub async fn get_project_repositories(&self, project_key: &str) -> Result<Vec<Repository>, anyhow::Error> {
+    pub async fn get_project_repositories(
+        &self,
+        project_key: &str,
+    ) -> Result<Vec<Repository>, anyhow::Error> {
         let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = &self.config.workspace_name, key = project_key, pagelen = 100);
         let res: RepositoriesResponse = self.get(url).await?;
 
         Ok(res.values)
     }
 
-    pub async fn get_repository_branches(&self, full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
+    pub async fn get_repository_branches(
+        &self,
+        full_repo_name: &str,
+    ) -> anyhow::Result<Vec<Branch>> {
         let url = format!("https://api.bitbucket.org/2.0/repositories/{full_repo_name}/refs/branches?pagelen={pagelen}", full_repo_name = full_repo_name, pagelen = 100);
 
         let mut branches_res: BranchesResponse = self.get(url).await?;
@@ -153,10 +159,10 @@ impl BitbucketApi {
                         Ok(None)
                     } else {
                         Err(anyhow::anyhow!(
-                        "Error: Repository {} was not found in Bitbucket account: {}",
-                        &repo_name,
-                        err
-                    ))
+                            "Error: Repository {} was not found in Bitbucket account: {}",
+                            &repo_name,
+                            err
+                        ))
                     }
                 }
                 None => Err(anyhow::anyhow!("Unknown error: {}", err)),

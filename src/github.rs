@@ -1,10 +1,10 @@
-use std::fmt::{Display, Formatter};
 use reqwest::header::{HeaderMap, HeaderValue};
+use std::fmt::{Display, Formatter};
 
-use crate::config::{CONFIG, GitHubConfig};
+use crate::api::{ApiClient, BasicAuth};
+use crate::config::{GitHubConfig, CONFIG};
 use reqwest::IntoUrl;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use crate::api::{ApiClient, BasicAuth};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -136,10 +136,10 @@ pub struct GithubApi {
     config: GitHubConfig,
 }
 
-impl GithubApi{
+impl GithubApi {
     pub fn new(config: &GitHubConfig) -> Self {
         Self {
-            config: config.clone()
+            config: config.clone(),
         }
     }
 
@@ -158,7 +158,11 @@ impl GithubApi{
         Ok(not_secret_teams)
     }
 
-    pub async fn create_team(&self, name: &str, repositories: &[String]) -> Result<Team, anyhow::Error> {
+    pub async fn create_team(
+        &self,
+        name: &str,
+        repositories: &[String],
+    ) -> Result<Team, anyhow::Error> {
         let url = format!(
             "https://api.github.com/orgs/{org_name}/teams",
             org_name = &self.config.organization_name
@@ -285,7 +289,11 @@ impl GithubApi{
         Ok(branches)
     }
 
-    pub async fn get_file_contents(&self, full_repo_name: &str, path: &str) -> anyhow::Result<FileContents> {
+    pub async fn get_file_contents(
+        &self,
+        full_repo_name: &str,
+        path: &str,
+    ) -> anyhow::Result<FileContents> {
         let url = format!(
             "https://api.github.com/repos/{repo}/contents/{path}",
             repo = full_repo_name,
@@ -354,7 +362,10 @@ impl ApiClient for GithubApi {
 
     fn headers(&self) -> Option<HeaderMap> {
         let mut headers = HeaderMap::new();
-        headers.insert("User-Agent", HeaderValue::from_str(&self.config.username).unwrap());
+        headers.insert(
+            "User-Agent",
+            HeaderValue::from_str(&self.config.username).unwrap(),
+        );
 
         Some(headers)
     }

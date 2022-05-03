@@ -15,9 +15,9 @@ use crate::{
     spinner,
 };
 
-use anyhow::{anyhow, Context};
 use crate::config::GitHubConfig;
 use crate::github::GithubApi;
+use anyhow::{anyhow, Context};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -177,11 +177,13 @@ impl Migrator {
         team_slug: &str,
         members: &[String],
     ) -> anyhow::Result<()> {
-        println!("Adding {} members to {} team", members.len(), team_name, );
+        println!("Adding {} members to {} team", members.len(), team_name,);
         let pb = ProgressBar::new(members.len() as u64);
         pb.set_style(progress_bar_style());
         for member in members {
-            self.github.update_team_membership(team_slug, member).await?;
+            self.github
+                .update_team_membership(team_slug, member)
+                .await?;
             pb.inc(1);
         }
         Ok(())
@@ -196,7 +198,9 @@ impl Migrator {
             "Setting '{}' as default branch for '{}' repository",
             branch, repo_name
         ));
-        self.github.set_repository_default_branch(repo_name, branch).await?;
+        self.github
+            .set_repository_default_branch(repo_name, branch)
+            .await?;
         spinner.finish_with_message(format!(
             "Set '{}' as default branch for '{}' repository",
             branch, repo_name
@@ -266,9 +270,9 @@ impl Migrator {
         let push_key_path = self.store_ssh_key("push", push_key, tmp_dir.path())?;
         let pull_key_path = self.store_ssh_key("pull", pull_key, tmp_dir.path())?;
 
-        let handles = repositories
-            .iter()
-            .map(|repo| self.migrate_repository(repo, &multi_progress, &pull_key_path, &push_key_path));
+        let handles = repositories.iter().map(|repo| {
+            self.migrate_repository(repo, &multi_progress, &pull_key_path, &push_key_path)
+        });
 
         let handles = futures::future::join_all(handles).await;
         for h in handles {
@@ -310,7 +314,9 @@ impl Migrator {
         let pb = ProgressBar::new(repositories.len() as u64);
         pb.set_style(progress_bar_style());
         for repository in repositories {
-            self.github.assign_repository_to_team(team_slug, permission, repository).await?;
+            self.github
+                .assign_repository_to_team(team_slug, permission, repository)
+                .await?;
             pb.inc(1);
         }
         Ok(())
@@ -333,35 +339,37 @@ impl Migrator {
         let push_key_path = push_key_path.to_path_buf();
 
         // tokio::spawn(async move {
-            let temp_dir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
-            pb.set_message(format!("[1/{}] Cloning {}", steps_count, repo.full_name, ));
-            let _ = self.clone_mirror(&repo.clone_link, temp_dir.path(), &pull_key_path);
-            pb.inc(1);
+        let temp_dir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
+        pb.set_message(format!("[1/{}] Cloning {}", steps_count, repo.full_name,));
+        let _ = self.clone_mirror(&repo.clone_link, temp_dir.path(), &pull_key_path);
+        pb.inc(1);
 
-            pb.set_message(format!(
-                "[2/{}] Creating {} repository in GitHub",
-                steps_count, repo.full_name
-            ));
-            let gh_repo =
-                self.github.create_repository(&repo.full_name.to_owned().replace("moodup/", "")).await?;
-            pb.inc(1);
+        pb.set_message(format!(
+            "[2/{}] Creating {} repository in GitHub",
+            steps_count, repo.full_name
+        ));
+        let gh_repo = self
+            .github
+            .create_repository(&repo.full_name.to_owned().replace("moodup/", ""))
+            .await?;
+        pb.inc(1);
 
-            pb.set_message(format!(
-                "[3/{}] Mirroring {} repository to GitHub",
-                steps_count, repo.full_name
-            ));
-            let _ = self.push_mirror(temp_dir.path(), &gh_repo.ssh_url, &push_key_path)?;
-            pb.inc(1);
+        pb.set_message(format!(
+            "[3/{}] Mirroring {} repository to GitHub",
+            steps_count, repo.full_name
+        ));
+        let _ = self.push_mirror(temp_dir.path(), &gh_repo.ssh_url, &push_key_path)?;
+        pb.inc(1);
 
-            pb.set_message(format!(
-                "[4/{}] Deleting {} repository from temp directory",
-                steps_count, repo.full_name
-            ));
-            temp_dir.close()?;
+        pb.set_message(format!(
+            "[4/{}] Deleting {} repository from temp directory",
+            steps_count, repo.full_name
+        ));
+        temp_dir.close()?;
 
-            pb.finish_with_message("✅ Migrated successfully!");
+        pb.finish_with_message("✅ Migrated successfully!");
 
-            Ok(repo)
+        Ok(repo)
         // })
     }
 
@@ -386,12 +394,12 @@ impl Migrator {
         if !clone_command.status.success() {
             let err_output = String::from_utf8(clone_command.stderr)?;
             return Err(anyhow!(
-            "Error when cloning {} into {}: {}\noutput: {}",
-            remote_url,
-            target_path.display(),
-            clone_command.status,
-            err_output
-        ));
+                "Error when cloning {} into {}: {}\noutput: {}",
+                remote_url,
+                target_path.display(),
+                clone_command.status,
+                err_output
+            ));
         }
 
         Ok(())
@@ -405,7 +413,12 @@ impl Migrator {
         Ok(cmd)
     }
 
-    fn push_mirror(&self, repo_path: &Path, remote_url: &str, key_path: &Path) -> Result<(), anyhow::Error> {
+    fn push_mirror(
+        &self,
+        repo_path: &Path,
+        remote_url: &str,
+        key_path: &Path,
+    ) -> Result<(), anyhow::Error> {
         let ssh_command = self.prepare_ssh_command(key_path)?;
         let push_command = Command::new("git")
             .arg("-c")
@@ -421,12 +434,12 @@ impl Migrator {
         if !push_command.status.success() {
             let err_output = String::from_utf8(push_command.stderr)?;
             return Err(anyhow!(
-            "Error when pushing {} to {}: {}\noutput: {}",
-            repo_path.display(),
-            remote_url,
-            push_command.status,
-            err_output
-        ));
+                "Error when pushing {} to {}: {}\noutput: {}",
+                repo_path.display(),
+                remote_url,
+                push_command.status,
+                err_output
+            ));
         }
 
         Ok(())
@@ -434,7 +447,9 @@ impl Migrator {
 
     async fn run(&self, action: &Action) -> Result<(), anyhow::Error> {
         match action {
-            Action::CreateTeam { name, repositories } => self.create_team(name, repositories).await?,
+            Action::CreateTeam { name, repositories } => {
+                self.create_team(name, repositories).await?
+            }
             Action::MigrateRepositories { repositories } => {
                 self.migrate_repositories(repositories).await?
             }
@@ -444,13 +459,17 @@ impl Migrator {
                 permission,
                 repositories,
             } => {
-                self.assign_repositories_to_team(team_name, team_slug, permission, repositories).await?
+                self.assign_repositories_to_team(team_name, team_slug, permission, repositories)
+                    .await?
             }
             Action::AddMembersToTeam {
                 team_name,
                 team_slug,
                 members,
-            } => self.add_members_to_team(team_name, team_slug, members).await?,
+            } => {
+                self.add_members_to_team(team_name, team_slug, members)
+                    .await?
+            }
             Action::SetRepositoryDefaultBranch {
                 repository_name,
                 branch,

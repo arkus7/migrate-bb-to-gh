@@ -9,6 +9,9 @@ pub mod wizard {
     use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect};
     use anyhow::{anyhow, Ok};
 
+    use crate::bitbucket::BitbucketApi;
+    use crate::config::CONFIG;
+    use crate::github::GithubApi;
     use crate::{
         bitbucket,
         circleci::{
@@ -18,9 +21,6 @@ pub mod wizard {
         github::{self, FileContents, Repository, Team},
         spinner,
     };
-    use crate::bitbucket::BitbucketApi;
-    use crate::config::CONFIG;
-    use crate::github::GithubApi;
 
     use super::{api, config::Config};
 
@@ -152,8 +152,10 @@ pub mod wizard {
                         "Fetching repositories from {} project",
                         project
                     ));
-                    let repositories =
-                        self.bitbucket.get_project_repositories(project.get_key()).await?;
+                    let repositories = self
+                        .bitbucket
+                        .get_project_repositories(project.get_key())
+                        .await?;
                     spinner.finish_with_message(format!(
                         "Fetched {} repositories from {} project!",
                         repositories.len(),
@@ -251,10 +253,7 @@ pub mod wizard {
             Ok(team.clone())
         }
 
-        async fn select_repositories(
-            &self,
-            team: &Team,
-        ) -> anyhow::Result<Vec<Repository>> {
+        async fn select_repositories(&self, team: &Team) -> anyhow::Result<Vec<Repository>> {
             let spinner =
                 spinner::create_spinner(format!("Fetching repositories from {} team", &team.name));
             let repositories = self.github.get_team_repositories(&team.slug).await?;
@@ -266,8 +265,7 @@ pub mod wizard {
             if selection.is_empty() {
                 return Err(anyhow!("At least one repository must be selected"));
             }
-            let repositories: Vec<Repository> =
-                selection.into_iter().cloned().collect::<Vec<_>>();
+            let repositories: Vec<Repository> = selection.into_iter().cloned().collect::<Vec<_>>();
             Ok(repositories)
         }
 
@@ -278,7 +276,10 @@ pub mod wizard {
             const CONFIG_PATH: &str = ".circleci/config.yml";
 
             let spinner = spinner::create_spinner(format!("Checking {} config", &repo.name));
-            let config_file = self.github.get_file_contents(&repo.full_name, CONFIG_PATH).await;
+            let config_file = self
+                .github
+                .get_file_contents(&repo.full_name, CONFIG_PATH)
+                .await;
             match config_file {
                 Result::Ok(config_file) => {
                     spinner.finish_with_message(format!(
