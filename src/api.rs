@@ -63,12 +63,14 @@ pub(crate) trait ApiClient {
             builder = builder.json(&body);
         }
 
-        let response = builder
-            .send()
-            .await?
-            .error_for_status()?
-            .json::<T>()
-            .await?;
+        let response = builder.send().await?.error_for_status()?;
+
+        let mut body = response.text().await?;
+        if body.is_empty() {
+            body = "{}".to_string();
+        }
+
+        let response = serde_json::from_str(&body).unwrap();
 
         Ok(response)
     }

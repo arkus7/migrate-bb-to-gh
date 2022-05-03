@@ -188,10 +188,11 @@ impl GithubApi{
             repo_name = repository_name
         );
 
-        let res: () =
-            self.put(url, Some(serde_json::json!({ "permission": permission }))).await?;
+        let _: Option<serde_json::Value> = self
+            .put(url, Some(serde_json::json!({ "permission": permission })))
+            .await?;
 
-        Ok(res)
+        Ok(())
     }
 
     pub async fn create_repository(&self, name: &str) -> Result<Repository, anyhow::Error> {
@@ -340,7 +341,7 @@ impl GithubApi{
             role: TeamMemberRole::Member,
         };
 
-        let _: serde_json::Value = self.put(url, Some(body)).await?;
+        let _: Option<serde_json::Value> = self.put(url, Some(body)).await?;
 
         Ok(())
     }
