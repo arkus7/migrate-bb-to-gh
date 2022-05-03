@@ -21,6 +21,7 @@ use crate::{
     spinner,
 };
 use crate::circleci::action::{Action, EnvVar};
+use crate::circleci::api::CircleCiApi;
 
 use super::{api, config::Config};
 
@@ -29,6 +30,7 @@ pub struct Wizard {
     version: String,
     bitbucket: BitbucketApi,
     github: GithubApi,
+    circleci: CircleCiApi,
 }
 
 pub struct WizardResult {
@@ -43,6 +45,7 @@ impl Wizard {
             version: version.to_owned(),
             bitbucket: BitbucketApi::new(&CONFIG.bitbucket),
             github: GithubApi::new(&CONFIG.github),
+            circleci: CircleCiApi::new(&CONFIG.circleci),
         }
     }
 
@@ -52,13 +55,13 @@ impl Wizard {
         let repositories = self.select_repositories(&team).await?;
 
         let spinner = spinner::create_spinner("Fetching GitHub contexts from CircleCI...");
-        let gh_contexts = api::get_contexts(api::Vcs::GitHub).await?;
+        let gh_contexts = self.circleci.get_contexts(api::Vcs::GitHub).await?;
         spinner.finish_with_message(format!(
             "Found {} contexts defined in GitHub org",
             gh_contexts.len()
         ));
         let spinner = spinner::create_spinner("Fetching Bitbucket contexts from CircleCI...");
-        let bb_contexts = api::get_contexts(api::Vcs::Bitbucket).await?;
+        let bb_contexts = self.circleci.get_contexts(api::Vcs::Bitbucket).await?;
         spinner.finish_with_message(format!(
             "Found {} contexts defined in Bitbucket org",
             bb_contexts.len()
@@ -116,7 +119,7 @@ impl Wizard {
             &repository.name
         ));
         let mut env_vars: Vec<_> =
-            api::get_env_vars(api::Vcs::Bitbucket, &repository.full_name)
+            self.circleci.get_env_vars(api::Vcs::Bitbucket, &repository.full_name)
                 .await?
                 .into_iter()
                 .map(|e| e.name)
@@ -179,7 +182,7 @@ impl Wizard {
                     &bb_repo.name
                 ));
                 let bb_env_vars =
-                    api::get_env_vars(api::Vcs::Bitbucket, &bb_repo.full_name).await?;
+                    self.circleci.get_env_vars(api::Vcs::Bitbucket, &bb_repo.full_name).await?;
                 spinner.finish_with_message(format!(
                     "Found {} env variables for {} repository",
                     bb_env_vars.len(),
@@ -397,7 +400,7 @@ impl Wizard {
             if let Some(bb_context) = bb_contexts.iter().find(|c| c.name == context) {
                 let spinner =
                     spinner::create_spinner(format!("Fetching {} context variables", &context));
-                let variables = api::get_context_variables(&bb_context.id).await?;
+                let variables = self.circleci.get_context_variables(&bb_context.id).await?;
                 spinner.finish_with_message(format!(
                     "Found {} variables for '{}' context",
                     variables.len(),
