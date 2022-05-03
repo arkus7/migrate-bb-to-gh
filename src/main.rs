@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{CommandFactory, Parser, Subcommand};
-use migrate_bb_to_gh::repositories::{Migrator, Wizard};
+use migrate_bb_to_gh::repositories::{self, Migrator, Wizard};
 use migrate_bb_to_gh::{circleci};
 
 /// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
@@ -79,8 +79,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 "Migration file saved to {:?}",
                 std::fs::canonicalize(&res.migration_file_path)?
             );
-            // TODO: Describe actions after going through wizard
-            // println!("{}", migrator::describe_actions(&res.actions));
+            println!("{}", repositories::describe_actions(&res.actions));
             println!(
                 "Run '{} migrate {}' to start migration process",
                 name,

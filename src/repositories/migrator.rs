@@ -18,7 +18,7 @@ use crate::{
 
 use crate::github::GithubApi;
 use anyhow::{anyhow, Context};
-use crate::repositories::action::{Action, Repository};
+use crate::repositories::action::{Action, describe_actions, Repository};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -95,7 +95,7 @@ impl Migrator {
         }
         let actions = migration.actions;
 
-        println!("{}", self.describe_actions(&actions));
+        println!("{}", describe_actions(&actions));
 
         let confirmed = Confirm::new()
             .with_prompt("Are you sure you want to migrate?")
@@ -114,20 +114,6 @@ impl Migrator {
         println!("Migration completed in {} seconds!", duration.as_secs());
 
         Ok(())
-    }
-
-    pub fn describe_actions(&self, actions: &[Action]) -> String {
-        let actions_list = actions
-            .iter()
-            .enumerate()
-            .map(|(idx, action)| format!("{}. {}", idx + 1, action.describe()))
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!(
-            "There are {} actions to be done during migration:\n{}",
-            actions.len(),
-            actions_list
-        )
     }
 
     async fn create_team(&self, name: &str, repositories: &[String]) -> Result<(), anyhow::Error> {
