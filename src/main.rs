@@ -88,7 +88,7 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Commands::Migrate { migration_file } => {
             let migrator = Migrator::new(migration_file, version);
-            migrator.migrate(migration_file, version).await?;
+            let _ = migrator.migrate().await?;
         }
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {

@@ -87,11 +87,11 @@ impl Migrator {
         Ok(())
     }
 
-    pub async fn migrate(self, migration_file: &Path, version: &str) -> Result<(), anyhow::Error> {
-        let file = File::open(migration_file)?;
+    pub async fn migrate(self) -> Result<(), anyhow::Error> {
+        let file = File::open(self.migration_file)?;
         let migration: Migration = serde_json::from_reader(file).with_context(|| format!("Error when parsing {:?} file.\nIs this a JSON file?\nDoes the version match the program version ({})?\nConsider re-generating the migration file with `wizard` subcommand.", migration_file, version))?;
-        if migration.version != version {
-            return Err(anyhow!("Migration file version is not compatible with current version, expected: {}, found: {}", version, migration.version));
+        if migration.version != self.version {
+            return Err(anyhow!("Migration file version is not compatible with current version, expected: {}, found: {}", self.version, migration.version));
         }
         let actions = migration.actions;
 
