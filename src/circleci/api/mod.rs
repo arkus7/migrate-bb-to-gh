@@ -121,6 +121,11 @@ impl CircleCiApi {
             env_vars: env_vars.to_vec(),
         };
 
+        // We try to export environment multiple times as sometimes the response status code
+        // is successful, but there are no env vars moved to the new project.
+        //
+        // Usually, 2 requests suffice, but `MAX_ATTEMPTS` is set to a greater value just in case.
+
         let mut variables = vec![];
         let mut attempts_made = 0;
 
