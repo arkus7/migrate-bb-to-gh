@@ -51,21 +51,7 @@ impl Wizard {
         let team = self.select_team().await?;
         let repositories = self.select_repositories(&team).await?;
 
-        let spinner = spinner::create_spinner("Fetching GitHub contexts from CircleCI...");
-        let gh_contexts = self.circleci.get_contexts(api::VCSProvider::GitHub).await?;
-        spinner.finish_with_message(format!(
-            "Found {} contexts defined in GitHub org",
-            gh_contexts.len()
-        ));
-        let spinner = spinner::create_spinner("Fetching Bitbucket contexts from CircleCI...");
-        let bb_contexts = self
-            .circleci
-            .get_contexts(api::VCSProvider::Bitbucket)
-            .await?;
-        spinner.finish_with_message(format!(
-            "Found {} contexts defined in Bitbucket org",
-            bb_contexts.len()
-        ));
+        let (gh_contexts, bb_contexts) = self.fetch_contexts().await?;
 
         let mut actions: Vec<Action> = vec![];
         for repository in repositories {
@@ -83,14 +69,7 @@ impl Wizard {
                 actions.push(move_envs_action);
             }
 
-            let defined_contexts: HashSet<_> = actions
-                .iter()
-                .filter(|a| matches!(a, Action::CreateContext { .. }))
-                .map(|a| match a {
-                    Action::CreateContext { name, .. } => name.to_owned(),
-                    _ => unreachable!(),
-                })
-                .collect();
+            let defined_contexts = Self::contexts_to_be_created(&mut actions);
 
             let create_contexts_actions = self
                 .create_contexts_actions(&config, &gh_contexts, &bb_contexts, &defined_contexts)
@@ -110,6 +89,37 @@ impl Wizard {
             actions,
             migration_file_path: self.output.clone(),
         })
+    }
+
+    fn contexts_to_be_created(actions: &[Action]) -> HashSet<String> {
+        let defined_contexts: HashSet<_> = actions
+            .iter()
+            .flat_map(|a| match a {
+                Action::CreateContext { name, .. } => Some(name.to_owned()),
+                _ => None,
+            })
+            .collect();
+
+        defined_contexts
+    }
+
+    async fn fetch_contexts(&self) -> anyhow::Result<(Vec<Context>, Vec<Context>)> {
+        let spinner = spinner::create_spinner("Fetching GitHub contexts from CircleCI...");
+        let gh_contexts = self.circleci.get_contexts(api::VCSProvider::GitHub).await?;
+        spinner.finish_with_message(format!(
+            "Found {} contexts defined in GitHub org",
+            gh_contexts.len()
+        ));
+        let spinner = spinner::create_spinner("Fetching Bitbucket contexts from CircleCI...");
+        let bb_contexts = self
+            .circleci
+            .get_contexts(api::VCSProvider::Bitbucket)
+            .await?;
+        spinner.finish_with_message(format!(
+            "Found {} contexts defined in Bitbucket org",
+            bb_contexts.len()
+        ));
+        Ok((gh_contexts, bb_contexts))
     }
 
     async fn move_env_vars(&self, repository: &Repository) -> anyhow::Result<Option<Action>> {
