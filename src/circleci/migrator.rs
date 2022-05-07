@@ -8,8 +8,8 @@ use crate::circleci::api;
 use crate::circleci::api::CircleCiApi;
 use crate::config::CircleCiConfig;
 use crate::spinner;
-use dialoguer::Confirm;
 use serde::{Deserialize, Serialize};
+use crate::prompts::Confirm;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -47,8 +47,7 @@ impl Migrator {
         let actions = migration.actions;
         println!("{}", describe_actions(&actions));
 
-        let confirmed = Confirm::new()
-            .with_prompt("Are you sure you want to migrate?")
+        let confirmed = Confirm::with_prompt("Are you sure you want to migrate?")
             .interact()?;
 
         if !confirmed {
