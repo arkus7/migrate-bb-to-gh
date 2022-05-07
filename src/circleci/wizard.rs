@@ -58,7 +58,10 @@ impl Wizard {
             gh_contexts.len()
         ));
         let spinner = spinner::create_spinner("Fetching Bitbucket contexts from CircleCI...");
-        let bb_contexts = self.circleci.get_contexts(api::VCSProvider::Bitbucket).await?;
+        let bb_contexts = self
+            .circleci
+            .get_contexts(api::VCSProvider::Bitbucket)
+            .await?;
         spinner.finish_with_message(format!(
             "Found {} contexts defined in Bitbucket org",
             bb_contexts.len()

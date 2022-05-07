@@ -139,7 +139,11 @@ impl CircleCiApi {
         Ok(())
     }
 
-    pub async fn create_context(&self, name: &str, vcs: VCSProvider) -> Result<Context, anyhow::Error> {
+    pub async fn create_context(
+        &self,
+        name: &str,
+        vcs: VCSProvider,
+    ) -> Result<Context, anyhow::Error> {
         let url = "https://circleci.com/api/v2/context";
         let body = CreateContextBody {
             name: name.to_string(),
