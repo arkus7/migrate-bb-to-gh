@@ -3,7 +3,6 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::{fs, fs::File, path::Path, process::Command, time::Instant};
 
-use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
@@ -13,6 +12,7 @@ use crate::{config::CONFIG, github::TeamRepositoryPermission, spinner};
 use crate::github::GithubApi;
 use crate::repositories::action::{describe_actions, Action, Repository};
 use anyhow::{anyhow, Context};
+use tokio::task::JoinHandle;
 use crate::prompts::Confirm;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -130,12 +130,12 @@ impl Migrator {
         let pull_key_path = self.store_ssh_key("pull", pull_key, tmp_dir.path())?;
 
         let handles = repositories.iter().map(|repo| {
-            self.migrate_repository(repo, &multi_progress, &pull_key_path, &push_key_path)
+            Self::migrate_repository(&self.github, repo, &multi_progress, &pull_key_path, &push_key_path)
         });
 
         let handles = futures::future::join_all(handles).await;
         for h in handles {
-            let res = h;
+            let res = h.await?;
             if let Err(e) = res {
                 eprintln!("Failed to migrate repository: {}", e)
             }
@@ -182,12 +182,12 @@ impl Migrator {
     }
 
     async fn migrate_repository(
-        &self,
+        github_api: &GithubApi,
         repository: &Repository,
         multi_progress: &MultiProgress,
         pull_key_path: &Path,
         push_key_path: &Path,
-    ) -> Result<Repository, anyhow::Error> {
+    ) -> JoinHandle<Result<Repository, anyhow::Error>> {
         let steps_count = 4;
         let pb = multi_progress.add(ProgressBar::new(steps_count));
         pb.set_prefix(format!("[{}] ", repository.full_name));
@@ -196,49 +196,47 @@ impl Migrator {
         let repo = repository.clone();
         let pull_key_path = pull_key_path.to_path_buf();
         let push_key_path = push_key_path.to_path_buf();
+        let github = github_api.clone();
+        tokio::spawn(async move {
+            let temp_dir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
+            pb.set_message(format!("[1/{}] Cloning {}", steps_count, repo.full_name,));
+            let _ = Self::clone_mirror(&repo.clone_link, temp_dir.path(), &pull_key_path);
+            pb.inc(1);
 
-        // tokio::spawn(async move {
-        let temp_dir = TempDir::new(&repo.full_name.to_owned().replace('/', "_"))?;
-        pb.set_message(format!("[1/{}] Cloning {}", steps_count, repo.full_name,));
-        let _ = self.clone_mirror(&repo.clone_link, temp_dir.path(), &pull_key_path);
-        pb.inc(1);
+            pb.set_message(format!(
+                "[2/{}] Creating {} repository in GitHub",
+                steps_count, repo.full_name
+            ));
+            let gh_repo = github
+                .create_repository(&repo.full_name.to_owned().replace("moodup/", ""))
+                .await?;
+            pb.inc(1);
 
-        pb.set_message(format!(
-            "[2/{}] Creating {} repository in GitHub",
-            steps_count, repo.full_name
-        ));
-        let gh_repo = self
-            .github
-            .create_repository(&repo.full_name.to_owned().replace("moodup/", ""))
-            .await?;
-        pb.inc(1);
+            pb.set_message(format!(
+                "[3/{}] Mirroring {} repository to GitHub",
+                steps_count, repo.full_name
+            ));
+            let _ = Self::push_mirror(temp_dir.path(), &gh_repo.ssh_url, &push_key_path)?;
+            pb.inc(1);
 
-        pb.set_message(format!(
-            "[3/{}] Mirroring {} repository to GitHub",
-            steps_count, repo.full_name
-        ));
-        let _ = self.push_mirror(temp_dir.path(), &gh_repo.ssh_url, &push_key_path)?;
-        pb.inc(1);
+            pb.set_message(format!(
+                "[4/{}] Deleting {} repository from temp directory",
+                steps_count, repo.full_name
+            ));
+            temp_dir.close()?;
 
-        pb.set_message(format!(
-            "[4/{}] Deleting {} repository from temp directory",
-            steps_count, repo.full_name
-        ));
-        temp_dir.close()?;
+            pb.finish_with_message("✅ Migrated successfully!");
 
-        pb.finish_with_message("✅ Migrated successfully!");
-
-        Ok(repo)
-        // })
+            Ok(repo)
+        })
     }
 
     fn clone_mirror(
-        &self,
         remote_url: &str,
         target_path: &Path,
         key_path: &Path,
     ) -> Result<(), anyhow::Error> {
-        let ssh_command = self.prepare_ssh_command(key_path)?;
+        let ssh_command = Self::prepare_ssh_command(key_path)?;
         let clone_command = Command::new("git")
             .arg("-c")
             .arg(format!("core.sshCommand={}", ssh_command))
@@ -264,7 +262,7 @@ impl Migrator {
         Ok(())
     }
 
-    fn prepare_ssh_command(&self, key_path: &Path) -> Result<String, anyhow::Error> {
+    fn prepare_ssh_command(key_path: &Path) -> Result<String, anyhow::Error> {
         let cmd = format!(
             "ssh -i '{private_key_file}' -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile='/dev/null' -F '/dev/null'",
             private_key_file = fs::canonicalize(key_path)?.display()
@@ -273,12 +271,11 @@ impl Migrator {
     }
 
     fn push_mirror(
-        &self,
         repo_path: &Path,
         remote_url: &str,
         key_path: &Path,
     ) -> Result<(), anyhow::Error> {
-        let ssh_command = self.prepare_ssh_command(key_path)?;
+        let ssh_command = Self::prepare_ssh_command(key_path)?;
         let push_command = Command::new("git")
             .arg("-c")
             .arg(format!("core.sshCommand={}", ssh_command))
