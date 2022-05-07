@@ -132,9 +132,7 @@ impl CircleCiApi {
         );
         let body = StartPipelineBody { branch };
 
-        let r: serde_json::Value = self.post(url, Some(body)).await?;
-
-        dbg!(&r);
+        let _: serde_json::Value = self.post(url, Some(body)).await?;
 
         Ok(())
     }
