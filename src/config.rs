@@ -1,13 +1,15 @@
-use lazy_static::lazy_static;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-lazy_static! {
-    pub static ref CONFIG: Config = {
-        let config_bytes = include_bytes!("../config.encrypted.yml");
-        let cfg = base64::decode(config_bytes).expect("cannot decode config");
+pub fn parse_config() -> anyhow::Result<Config> {
+    let config_bytes = include_bytes!("../config.encrypted.yml");
+    let cfg = decrypt_config(config_bytes)?;
 
-        serde_yaml::from_slice(&cfg).expect("cannot parse configuration file")
-    };
+    serde_yaml::from_slice(&cfg).with_context(|| "Cannot parse decrypted configuration file")
+}
+
+fn decrypt_config(config_bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
+    base64::decode(config_bytes).with_context(|| "cannot decrypt config")
 }
 
 #[derive(Serialize, Deserialize, Debug)]

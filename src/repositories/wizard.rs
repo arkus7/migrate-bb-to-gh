@@ -7,7 +7,7 @@ use crate::{
 };
 
 use crate::bitbucket::{Branch, Repository};
-use crate::config::CONFIG;
+use crate::config::{BitbucketConfig, GitHubConfig};
 use crate::github::Team;
 use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
 use crate::repositories::action::Action;
@@ -28,12 +28,17 @@ pub struct WizardResult {
 }
 
 impl Wizard {
-    pub fn new(output_path: PathBuf, version: &str) -> Self {
+    pub fn new(
+        output_path: PathBuf,
+        version: &str,
+        bitbucket_cfg: BitbucketConfig,
+        github_config: GitHubConfig,
+    ) -> Self {
         Self {
             output_path,
             version: version.to_owned(),
-            bitbucket: BitbucketApi::new(&CONFIG.bitbucket),
-            github: GithubApi::new(&CONFIG.github),
+            bitbucket: BitbucketApi::new(&bitbucket_cfg),
+            github: GithubApi::new(&github_config),
         }
     }
 

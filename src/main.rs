@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use migrate_bb_to_gh::circleci;
+use migrate_bb_to_gh::config;
 use migrate_bb_to_gh::repositories::{self, Migrator, Wizard};
 
 /// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
@@ -70,9 +71,11 @@ async fn main() -> Result<(), anyhow::Error> {
     let version = cmd.get_version().unwrap();
     let name = cmd.get_name();
 
+    let config = config::parse_config()?;
+
     match &cli.command {
         Commands::Wizard { output } => {
-            let wizard = Wizard::new(output.clone(), version);
+            let wizard = Wizard::new(output.clone(), version, config.bitbucket, config.github);
             let res = wizard.run().await?;
 
             println!(
@@ -87,12 +90,12 @@ async fn main() -> Result<(), anyhow::Error> {
             );
         }
         Commands::Migrate { migration_file } => {
-            let migrator = Migrator::new(migration_file, version);
+            let migrator = Migrator::new(migration_file, version, config);
             let _ = migrator.migrate().await?;
         }
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {
-                let res = circleci::Wizard::new(output, version).run().await?;
+                let res = circleci::Wizard::new(output, version, config).run().await?;
                 println!(
                     "Migration file saved to {:?}",
                     std::fs::canonicalize(&res.migration_file_path)?
@@ -105,7 +108,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 );
             }
             CircleCiCommands::Migrate { migration_file } => {
-                let migrator = circleci::Migrator::new(migration_file, version);
+                let migrator = circleci::Migrator::new(migration_file, version, config.circleci);
                 let _ = migrator.migrate().await?;
             }
         },

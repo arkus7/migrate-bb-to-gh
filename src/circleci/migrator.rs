@@ -5,7 +5,7 @@ use std::{fs::File, path::Path};
 use crate::circleci::action::{describe_actions, Action, EnvVar};
 use crate::circleci::api;
 use crate::circleci::api::CircleCiApi;
-use crate::config::CONFIG;
+use crate::config::CircleCiConfig;
 use crate::spinner;
 use dialoguer::Confirm;
 use serde::{Deserialize, Serialize};
@@ -32,11 +32,11 @@ pub struct Migrator {
 }
 
 impl Migrator {
-    pub fn new(migration_file: &Path, version: &str) -> Self {
+    pub fn new(migration_file: &Path, version: &str, circleci_cfg: CircleCiConfig) -> Self {
         Self {
             migration_file: migration_file.to_path_buf(),
             version: version.to_owned(),
-            circleci: CircleCiApi::new(&CONFIG.circleci),
+            circleci: CircleCiApi::new(&circleci_cfg),
         }
     }
 

@@ -4,7 +4,7 @@ use crate::circleci::api::models::{
     ContextOwnerBody, ContextVariablesResponse, ContextsResponse, CreateContextBody,
     EnvVarsResponse, ExportEnvironmentBody, StartPipelineBody, UpdateContextVariableBody,
 };
-use crate::config::{CircleCiConfig, CONFIG};
+use crate::config::CircleCiConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 use crate::api::{ApiClient, BasicAuth};
@@ -175,8 +175,8 @@ impl CircleCiApi {
 
     fn org_id(&self, provider: VCSProvider) -> &str {
         match provider {
-            VCSProvider::Bitbucket => &CONFIG.circleci.bitbucket_org_id,
-            VCSProvider::GitHub => &CONFIG.circleci.github_org_id,
+            VCSProvider::Bitbucket => &self.config.bitbucket_org_id,
+            VCSProvider::GitHub => &self.config.github_org_id,
         }
     }
 }

@@ -7,8 +7,9 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 
-use crate::{config::CONFIG, github::TeamRepositoryPermission, spinner};
+use crate::{github::TeamRepositoryPermission, spinner};
 
+use crate::config::{Config, GitConfig};
 use crate::github::GithubApi;
 use crate::prompts::Confirm;
 use crate::repositories::action::{describe_actions, Action, Repository};
@@ -34,14 +35,16 @@ pub struct Migrator {
     migration_file: PathBuf,
     version: String,
     github: GithubApi,
+    git_config: GitConfig,
 }
 
 impl Migrator {
-    pub fn new(migration_file: &Path, version: &str) -> Self {
+    pub fn new(migration_file: &Path, version: &str, config: Config) -> Self {
         Self {
             migration_file: migration_file.to_path_buf(),
             version: version.to_string(),
-            github: GithubApi::new(&CONFIG.github),
+            github: GithubApi::new(&config.github),
+            git_config: config.git,
         }
     }
 
@@ -120,8 +123,8 @@ impl Migrator {
         println!("Migrating {} repositories", repositories.len());
         let multi_progress = MultiProgress::new();
 
-        let push_key = &CONFIG.git.push_ssh_key;
-        let pull_key = &CONFIG.git.pull_ssh_key;
+        let push_key = &self.git_config.push_ssh_key;
+        let pull_key = &self.git_config.pull_ssh_key;
 
         let tmp_dir = TempDir::new("migrate-bb-to-gh")?;
 

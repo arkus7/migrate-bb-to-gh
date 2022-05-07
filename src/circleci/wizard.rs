@@ -11,7 +11,6 @@ use anyhow::{anyhow, Ok};
 use crate::bitbucket::BitbucketApi;
 use crate::circleci::action::{Action, EnvVar};
 use crate::circleci::api::CircleCiApi;
-use crate::config::CONFIG;
 use crate::github::GithubApi;
 use crate::{
     bitbucket,
@@ -36,13 +35,13 @@ pub struct WizardResult {
 }
 
 impl Wizard {
-    pub fn new(output: &Path, version: &str) -> Self {
+    pub fn new(output: &Path, version: &str, config: crate::config::Config) -> Self {
         Self {
             output: output.to_path_buf(),
             version: version.to_owned(),
-            bitbucket: BitbucketApi::new(&CONFIG.bitbucket),
-            github: GithubApi::new(&CONFIG.github),
-            circleci: CircleCiApi::new(&CONFIG.circleci),
+            bitbucket: BitbucketApi::new(&config.bitbucket),
+            github: GithubApi::new(&config.github),
+            circleci: CircleCiApi::new(&config.circleci),
         }
     }
 

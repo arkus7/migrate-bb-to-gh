@@ -1,11 +1,11 @@
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
-use std::fmt::{Display, Formatter};
 use reqwest::IntoUrl;
+use std::fmt::{Display, Formatter};
 
 use crate::api::{ApiClient, BasicAuth};
 use crate::config::GitHubConfig;
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -353,7 +353,7 @@ impl GithubApi {
     where
         T: DeserializeOwned,
         F: Fn(u32) -> U,
-        U: IntoUrl + Send
+        U: IntoUrl + Send,
     {
         let mut results = vec![];
         let mut page: u32 = 1;
@@ -362,7 +362,7 @@ impl GithubApi {
             let res = self.get::<Vec<T>, U>(url).await?;
 
             if res.is_empty() {
-                break
+                break;
             }
 
             results.extend(res);
