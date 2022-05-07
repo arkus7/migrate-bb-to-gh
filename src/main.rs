@@ -79,8 +79,8 @@ async fn main() -> Result<(), anyhow::Error> {
             let res = wizard.run().await?;
 
             println!(
-                "Migration file saved to {:?}",
-                std::fs::canonicalize(&res.migration_file_path)?
+                "Migration file saved to {}",
+                std::fs::canonicalize(&res.migration_file_path)?.display()
             );
             println!("{}", repositories::describe_actions(&res.actions));
             println!(
@@ -97,8 +97,8 @@ async fn main() -> Result<(), anyhow::Error> {
             CircleCiCommands::Wizard { output } => {
                 let res = circleci::Wizard::new(output, version, config).run().await?;
                 println!(
-                    "Migration file saved to {:?}",
-                    std::fs::canonicalize(&res.migration_file_path)?
+                    "Migration file saved to {}",
+                    std::fs::canonicalize(&res.migration_file_path)?.display()
                 );
                 println!("{}", circleci::describe_actions(&res.actions));
                 println!(
