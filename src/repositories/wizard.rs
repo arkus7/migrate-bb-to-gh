@@ -43,6 +43,7 @@ impl Wizard {
     }
 
     pub async fn run(&self) -> Result<WizardResult, anyhow::Error> {
+        println!("Welcome to Bitbucket-GitHub Migration Wizard!");
         let project = self.select_project().await?;
         let bb_repos = self.select_repositories(&project).await?;
 
@@ -330,8 +331,9 @@ impl Wizard {
             .cloned()
             .collect::<Vec<_>>();
         spinner.finish_with_message(format!(
-            "{} of the selected repositories already exist on GitHub",
-            intersection.len()
+            "{} of the {} selected repositories already exist on GitHub",
+            intersection.len(),
+            selected_repo_names.len(),
         ));
 
         intersection
