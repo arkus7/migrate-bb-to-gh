@@ -1,8 +1,8 @@
 mod api;
-pub mod bitbucket;
+mod bitbucket;
 pub mod circleci;
 pub mod config;
-pub mod github;
-pub mod prompts;
+mod github;
+mod prompts;
 pub mod repositories;
-pub mod spinner;
+mod spinner;
