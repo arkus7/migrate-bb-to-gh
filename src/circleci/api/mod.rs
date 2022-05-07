@@ -121,7 +121,17 @@ impl CircleCiApi {
             env_vars: env_vars.to_vec(),
         };
 
-        let _: serde_json::Value = self.post(url, Some(body)).await?;
+        let mut variables = vec![];
+        let mut attempts_made = 0;
+
+        const MAX_ATTEMPTS: u8 = 5;
+
+        while variables.len() < env_vars.len() && attempts_made < MAX_ATTEMPTS {
+            let _: serde_json::Value = self.post(&url, Some(&body)).await?;
+            variables = self.get_env_vars(VCSProvider::GitHub, to_repo_name).await?;
+            attempts_made += 1;
+        }
+
         Ok(())
     }
 
