@@ -68,7 +68,7 @@ impl Input {
                 match err {
                     None => return Ok(input),
                     Some(e) => {
-                        println!("{}", e);
+                        eprintln!("Error: {}", e);
                         continue;
                     }
                 }
