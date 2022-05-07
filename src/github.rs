@@ -1,9 +1,11 @@
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use std::fmt::{Display, Formatter};
+use reqwest::IntoUrl;
 
 use crate::api::{ApiClient, BasicAuth};
 use crate::config::GitHubConfig;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -239,26 +241,31 @@ impl GithubApi {
         Ok(res)
     }
 
-    // FIXME (07.05.2022) - returns up to 100 repos
     pub async fn get_team_repositories(&self, team_slug: &str) -> anyhow::Result<Vec<Repository>> {
-        let url = format!(
-            "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos",
-            org_name = &self.config.organization_name,
-            team_slug = team_slug
-        );
+        let url_factory = |page: u32| {
+            format!(
+                "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos?page={page}",
+                org_name = &self.config.organization_name,
+                team_slug = team_slug,
+                page = page
+            )
+        };
 
-        let res: Vec<Repository> = self.get(url).await?;
+        let res: Vec<Repository> = self.get_all_pages(url_factory).await?;
 
         Ok(res)
     }
 
     pub async fn get_repositories(&self) -> anyhow::Result<Vec<Repository>> {
-        let url = format!(
-            "https://api.github.com/orgs/{org_name}/repos?per_page=500",
-            org_name = &self.config.organization_name,
-        );
+        let url_factory = |page: u32| {
+            format!(
+                "https://api.github.com/orgs/{org_name}/repos?per_page=100&page={page}",
+                org_name = &self.config.organization_name,
+                page = page,
+            )
+        };
 
-        let res: Vec<Repository> = self.get(url).await?;
+        let res: Vec<Repository> = self.get_all_pages(url_factory).await?;
 
         Ok(res)
     }
@@ -272,20 +279,7 @@ impl GithubApi {
             )
         };
 
-        let mut branches = vec![];
-        let mut page = 1;
-
-        loop {
-            let url = url_factory(page);
-            let res: Vec<Branch> = self.get(url).await?;
-
-            if res.is_empty() {
-                break;
-            }
-
-            branches.extend(res);
-            page += 1;
-        }
+        let branches = self.get_all_pages(url_factory).await?;
 
         Ok(branches)
     }
@@ -353,6 +347,29 @@ impl GithubApi {
         let _: Option<serde_json::Value> = self.put(url, Some(body)).await?;
 
         Ok(())
+    }
+
+    async fn get_all_pages<T, F, U>(&self, url_factory: F) -> anyhow::Result<Vec<T>>
+    where
+        T: DeserializeOwned,
+        F: Fn(u32) -> U,
+        U: IntoUrl + Send
+    {
+        let mut results = vec![];
+        let mut page: u32 = 1;
+        loop {
+            let url = url_factory(page);
+            let res = self.get::<Vec<T>, U>(url).await?;
+
+            if res.is_empty() {
+                break
+            }
+
+            results.extend(res);
+            page += 1;
+        }
+
+        Ok(results)
     }
 }
 
