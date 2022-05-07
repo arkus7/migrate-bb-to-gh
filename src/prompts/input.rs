@@ -1,7 +1,7 @@
 use crate::prompts::default_theme;
 use std::io;
 
-type InputValidator = Box<dyn Fn(&str) -> Option<&str>>;
+type InputValidator = Box<dyn Fn(&str) -> Option<String>>;
 
 ///
 /// # Example
@@ -12,7 +12,7 @@ type InputValidator = Box<dyn Fn(&str) -> Option<&str>>;
 /// use migrate_bb_to_gh::prompts::Input;
 ///
 /// let email: String = Input::with_prompt("Provide your e-mail address")
-///     .validate_with(|mail: &str| if !mail.contains('@') { Some("invalid email") } else { None })
+///     .validate_with(|mail: &str| if !mail.contains('@') { Some("invalid email".to_string()) } else { None })
 ///     .interact()?;
 /// ```
 /// ## Initial value
@@ -43,7 +43,10 @@ impl Input {
         self
     }
 
-    pub fn validate_with(&mut self, validator: fn(&str) -> Option<&str>) -> &mut Self {
+    pub fn validate_with<F>(&mut self, validator: F) -> &mut Self
+    where
+        F: 'static + Fn(&str) -> Option<String>,
+    {
         self.validator = Some(Box::new(validator));
         self
     }
@@ -59,7 +62,7 @@ impl Input {
                 .interact()?;
 
             if let Some(validator) = &self.validator {
-                let err: Option<&str> = validator(&input);
+                let err = validator(&input);
                 match err {
                     None => return Ok(input),
                     Some(e) => {
