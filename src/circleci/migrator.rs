@@ -88,7 +88,7 @@ impl Migrator {
         }
     }
 
-    async fn start_pipeline(&self, repository_name: &String, branch: &String) -> Result<(), Error> {
+    async fn start_pipeline(&self, repository_name: &str, branch: &str) -> Result<(), Error> {
         let spinner = spinner::create_spinner(format!(
             "Starting pipeline for {} on branch {}",
             &repository_name, &branch
@@ -106,9 +106,9 @@ impl Migrator {
 
     async fn export_env_variables(
         &self,
-        from_repository_name: &String,
-        to_repository_name: &String,
-        env_vars: &Vec<String>,
+        from_repository_name: &str,
+        to_repository_name: &str,
+        env_vars: &[String],
     ) -> Result<(), Error> {
         let spinner = spinner::create_spinner(format!("Moving {} environmental variables from '{}' project on Bitbucket to '{}' project on Github", env_vars.len(), &from_repository_name, &to_repository_name));
         let _ = self
@@ -119,7 +119,7 @@ impl Migrator {
         Ok(())
     }
 
-    async fn create_context(&self, name: &String, variables: &Vec<EnvVar>) -> Result<(), Error> {
+    async fn create_context(&self, name: &str, variables: &[EnvVar]) -> Result<(), Error> {
         let spinner = spinner::create_spinner(format!("Creating '{}' context", name));
         let ctx = self
             .circleci

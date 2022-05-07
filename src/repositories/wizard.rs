@@ -104,7 +104,7 @@ impl Wizard {
 
     async fn ask_change_default_branch(
         &self,
-        repositories: &Vec<Repository>,
+        repositories: &[Repository],
     ) -> anyhow::Result<Option<Vec<Action>>> {
         let change_branches = Confirm::with_prompt(
             "Do you want to change default branches of selected repositories?",
@@ -114,7 +114,7 @@ impl Wizard {
         if change_branches {
             let for_change =
                 MultiSelect::with_prompt("Select repositories to change the default branch")
-                    .items(&repositories)
+                    .items(repositories)
                     .interact()?;
             if for_change.is_empty() {
                 println!("No repositories selected, skipping changing default branch...");
@@ -122,7 +122,7 @@ impl Wizard {
             }
             let mut actions = vec![];
             for repo in for_change {
-                let branches = self.fetch_repo_branches(&repo).await?;
+                let branches = self.fetch_repo_branches(repo).await?;
 
                 let current_idx = branches.iter().position(|b| b.name == repo.mainbranch.name);
                 let default_idx = branches.iter().position(|b| b.name == "development");
@@ -173,25 +173,21 @@ impl Wizard {
 
     fn ask_additional_teams(
         &self,
-        repositories_names: &Vec<String>,
-        teams: &Vec<Team>,
+        repositories_names: &[String],
+        teams: &[Team],
     ) -> anyhow::Result<Option<Vec<Action>>> {
         let additional_teams = Confirm::with_prompt("Do you want to add access for other teams to these repositories?\n(Consider adding tech-team for those repositories)")
             .interact()?;
 
         if additional_teams {
             let teams = MultiSelect::with_prompt("Select teams")
-                .items(&teams)
+                .items(teams)
                 .interact()?;
 
             let permission_actions = teams
                 .iter()
                 .flat_map(|team| {
-                    self.select_permissions_action(
-                        &team.name,
-                        Some(&team.slug),
-                        &repositories_names,
-                    )
+                    self.select_permissions_action(&team.name, Some(&team.slug), repositories_names)
                 })
                 .collect();
 
@@ -204,8 +200,8 @@ impl Wizard {
     async fn ask_create_team(
         &self,
         project_name: &str,
-        repositories_names: &Vec<String>,
-        existing_teams: &Vec<Team>,
+        repositories_names: &[String],
+        existing_teams: &[Team],
     ) -> anyhow::Result<Option<Vec<Action>>> {
         let create_team_confirm =
             Confirm::with_prompt("Do you want to create a new team for selected repositories?")
@@ -213,9 +209,9 @@ impl Wizard {
         let create_team_actions = if create_team_confirm {
             let existing_teams = existing_teams.to_vec();
             let team_name = Input::with_prompt("Team name")
-                .initial_text(&project_name)
+                .initial_text(project_name)
                 .validate_with(move |input| {
-                    if existing_teams.iter().any(|t| t.name == input.to_owned()) {
+                    if existing_teams.iter().any(|t| t.name == *input) {
                         Some(format!("Team with '{}' name already exist", input))
                     } else {
                         None
@@ -239,10 +235,10 @@ impl Wizard {
                 .collect::<Vec<_>>();
 
             let permissions_action =
-                self.select_permissions_action(&team_name, Some(&team_slug), &repositories_names)?;
+                self.select_permissions_action(&team_name, Some(&team_slug), repositories_names)?;
             let create_team = Action::CreateTeam {
                 name: team_name.clone(),
-                repositories: repositories_names.clone(),
+                repositories: repositories_names.to_vec(),
             };
             let add_members_to_team = Action::AddMembersToTeam {
                 team_name,
@@ -313,8 +309,8 @@ impl Wizard {
     }
 
     fn already_migrated_repo_names<'a>(
-        bb_repositories: &'a Vec<BitbucketRepository>,
-        gh_repositories: &'a Vec<GitHubRepository>,
+        bb_repositories: &'a [BitbucketRepository],
+        gh_repositories: &'a [GitHubRepository],
     ) -> Vec<&'a String> {
         let spinner = spinner::create_spinner("Checking for existing repositories in GitHub...");
         let selected_repo_names = bb_repositories

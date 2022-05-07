@@ -68,7 +68,7 @@ impl Wizard {
                 actions.push(move_envs_action);
             }
 
-            let defined_contexts = Self::contexts_to_be_created(&mut actions);
+            let defined_contexts = Self::contexts_to_be_created(&actions);
 
             let create_contexts_actions = self
                 .create_contexts_actions(&config, &gh_contexts, &bb_contexts, &defined_contexts)

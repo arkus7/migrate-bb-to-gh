@@ -13,7 +13,8 @@ type InputValidator = Box<dyn Fn(&str) -> Option<String>>;
 ///
 /// let email: String = Input::with_prompt("Provide your e-mail address")
 ///     .validate_with(|mail: &str| if !mail.contains('@') { Some("invalid email".to_string()) } else { None })
-///     .interact()?;
+///     .interact()
+///     .expect("could not interact");
 /// ```
 /// ## Initial value
 /// ```rust,no_run
@@ -21,7 +22,8 @@ type InputValidator = Box<dyn Fn(&str) -> Option<String>>;
 ///
 /// let email: String = Input::with_prompt("What's your favorite color?")
 ///     .initial_text("Red")
-///     .interact()?;
+///     .interact()
+///     .expect("could not interact");
 /// ```
 pub struct Input {
     prompt: String,
