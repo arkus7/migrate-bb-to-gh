@@ -1,6 +1,9 @@
 mod models;
 
-use crate::circleci::api::models::{ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, PageResponse, StartPipelineBody, UpdateContextVariableBody};
+use crate::circleci::api::models::{
+    ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, PageResponse, StartPipelineBody,
+    UpdateContextVariableBody,
+};
 use crate::config::CircleCiConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 

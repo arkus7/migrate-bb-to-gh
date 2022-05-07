@@ -1,15 +1,15 @@
 use anyhow::{anyhow, Context, Error};
 use std::path::PathBuf;
-use std::{fs::File, path::Path};
 use std::time::Instant;
+use std::{fs::File, path::Path};
 
 use crate::circleci::action::{describe_actions, Action, EnvVar};
 use crate::circleci::api;
 use crate::circleci::api::CircleCiApi;
 use crate::config::CircleCiConfig;
+use crate::prompts::Confirm;
 use crate::spinner;
 use serde::{Deserialize, Serialize};
-use crate::prompts::Confirm;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -47,8 +47,7 @@ impl Migrator {
         let actions = migration.actions;
         println!("{}", describe_actions(&actions));
 
-        let confirmed = Confirm::with_prompt("Are you sure you want to migrate?")
-            .interact()?;
+        let confirmed = Confirm::with_prompt("Are you sure you want to migrate?").interact()?;
 
         if !confirmed {
             return Err(anyhow!("Migration canceled"));
