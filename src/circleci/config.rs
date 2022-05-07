@@ -13,7 +13,7 @@ impl FromStr for Config {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
-        let raw = serde_yaml::from_str::<raw::RawConfig>(s)?;
+        let raw = serde_yaml::from_str::<raw::Config>(s)?;
 
         let mut contexts = HashSet::<String>::new();
 
@@ -47,7 +47,7 @@ mod raw {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    pub(crate) struct RawConfig {
+    pub(crate) struct Config {
         pub workflows: BTreeMap<String, WorkflowEntry>,
     }
 
