@@ -10,10 +10,10 @@ use tempdir::TempDir;
 use crate::{config::CONFIG, github::TeamRepositoryPermission, spinner};
 
 use crate::github::GithubApi;
+use crate::prompts::Confirm;
 use crate::repositories::action::{describe_actions, Action, Repository};
 use anyhow::{anyhow, Context};
 use tokio::task::JoinHandle;
-use crate::prompts::Confirm;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -92,8 +92,7 @@ impl Migrator {
 
         println!("{}", describe_actions(&actions));
 
-        let confirmed = Confirm::with_prompt("Are you sure you want to migrate?")
-            .interact()?;
+        let confirmed = Confirm::with_prompt("Are you sure you want to migrate?").interact()?;
 
         if !confirmed {
             return Err(anyhow!("Migration canceled"));
@@ -130,7 +129,13 @@ impl Migrator {
         let pull_key_path = self.store_ssh_key("pull", pull_key, tmp_dir.path())?;
 
         let handles = repositories.iter().map(|repo| {
-            Self::migrate_repository(&self.github, repo, &multi_progress, &pull_key_path, &push_key_path)
+            Self::migrate_repository(
+                &self.github,
+                repo,
+                &multi_progress,
+                &pull_key_path,
+                &push_key_path,
+            )
         });
 
         let handles = futures::future::join_all(handles).await;
