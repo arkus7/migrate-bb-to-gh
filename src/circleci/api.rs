@@ -10,7 +10,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use crate::api::{ApiClient, BasicAuth};
 pub use models::{Context, ContextVariable, EnvVar};
 
-const AUTH_HEADER: &str = "Circle-Token";
+const AUTH_HEADER: &str = "circle-token";
 
 pub enum Vcs {
     Bitbucket,
