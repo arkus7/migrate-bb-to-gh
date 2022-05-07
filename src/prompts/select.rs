@@ -27,11 +27,6 @@ where
         self
     }
 
-    pub fn item(&mut self, item: &'a T) -> &mut Self {
-        self.items.push(item);
-        self
-    }
-
     pub fn default(&mut self, default: usize) -> &mut Self {
         self.default = default;
         self
