@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EnvVar {
+pub(crate) struct EnvVar {
     pub name: String,
     pub value: String,
 }
@@ -13,7 +13,7 @@ pub(super) struct EnvVarsResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Context {
+pub(crate) struct Context {
     pub name: String,
     pub id: String,
 }
@@ -31,7 +31,7 @@ pub(super) struct ContextVariablesResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ContextVariable {
+pub(crate) struct ContextVariable {
     pub variable: String,
     pub context_id: String,
 }

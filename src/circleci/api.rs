@@ -8,7 +8,7 @@ use crate::config::{CircleCiConfig, CONFIG};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 use crate::api::{ApiClient, BasicAuth};
-pub use models::{Context, ContextVariable, EnvVar};
+pub(crate) use models::{Context, ContextVariable, EnvVar};
 
 const AUTH_HEADER: &str = "circle-token";
 
