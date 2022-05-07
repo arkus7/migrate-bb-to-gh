@@ -131,6 +131,7 @@ impl Display for Member {
     }
 }
 
+#[derive(Clone)]
 pub struct GithubApi {
     config: GitHubConfig,
 }
@@ -238,6 +239,7 @@ impl GithubApi {
         Ok(res)
     }
 
+    // FIXME (07.05.2022) - returns up to 100 repos
     pub async fn get_team_repositories(&self, team_slug: &str) -> anyhow::Result<Vec<Repository>> {
         let url = format!(
             "https://api.github.com/orgs/{org_name}/teams/{team_slug}/repos",
