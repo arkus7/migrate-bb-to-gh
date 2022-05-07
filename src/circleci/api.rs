@@ -12,23 +12,16 @@ pub(crate) use models::{Context, ContextVariable, EnvVar};
 
 const AUTH_HEADER: &str = "circle-token";
 
-pub enum Vcs {
+pub(crate) enum VCSProvider {
     Bitbucket,
     GitHub,
 }
 
-impl Vcs {
-    fn org_id(&self) -> &str {
-        match self {
-            Vcs::Bitbucket => &CONFIG.circleci.bitbucket_org_id,
-            Vcs::GitHub => &CONFIG.circleci.github_org_id,
-        }
-    }
-
+impl VCSProvider {
     const fn slug_prefix(&self) -> &str {
         match self {
-            Vcs::Bitbucket => "bitbucket",
-            Vcs::GitHub => "gh",
+            VCSProvider::Bitbucket => "bitbucket",
+            VCSProvider::GitHub => "gh",
         }
     }
 }
@@ -63,7 +56,7 @@ impl CircleCiApi {
 
     pub async fn get_env_vars(
         &self,
-        vcs: Vcs,
+        vcs: VCSProvider,
         full_repo_name: &str,
     ) -> anyhow::Result<Vec<EnvVar>> {
         let project_slug = format!("{}/{}", vcs.slug_prefix(), full_repo_name);
@@ -88,10 +81,10 @@ impl CircleCiApi {
         Ok(items)
     }
 
-    pub async fn get_contexts(&self, vcs: Vcs) -> anyhow::Result<Vec<Context>> {
+    pub async fn get_contexts(&self, vcs: VCSProvider) -> anyhow::Result<Vec<Context>> {
         let url = format!(
             "https://circleci.com/api/v2/context?owner-id={org_id}",
-            org_id = vcs.org_id()
+            org_id = self.org_id(vcs)
         );
 
         let res: ContextsResponse = self.get(url).await?;
@@ -146,12 +139,12 @@ impl CircleCiApi {
         Ok(())
     }
 
-    pub async fn create_context(&self, name: &str, vcs: Vcs) -> Result<Context, anyhow::Error> {
+    pub async fn create_context(&self, name: &str, vcs: VCSProvider) -> Result<Context, anyhow::Error> {
         let url = "https://circleci.com/api/v2/context";
         let body = CreateContextBody {
             name: name.to_string(),
             owner: ContextOwnerBody {
-                id: vcs.org_id().to_string(),
+                id: self.org_id(vcs).to_string(),
             },
         };
 
@@ -176,5 +169,12 @@ impl CircleCiApi {
 
         let var = self.put(url, Some(body)).await?;
         Ok(var)
+    }
+
+    fn org_id(&self, provider: VCSProvider) -> &str {
+        match provider {
+            VCSProvider::Bitbucket => &CONFIG.circleci.bitbucket_org_id,
+            VCSProvider::GitHub => &CONFIG.circleci.github_org_id,
+        }
     }
 }

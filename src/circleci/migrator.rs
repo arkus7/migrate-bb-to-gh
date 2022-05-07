@@ -69,7 +69,7 @@ impl Migrator {
         match action {
             Action::CreateContext { name, variables } => {
                 let spinner = spinner::create_spinner(format!("Creating '{}' context", name));
-                let ctx = self.circleci.create_context(name, api::Vcs::GitHub).await?;
+                let ctx = self.circleci.create_context(name, api::VCSProvider::GitHub).await?;
                 spinner.finish_with_message(format!(
                     "Created context '{}' (id: {})",
                     &ctx.name, &ctx.id
