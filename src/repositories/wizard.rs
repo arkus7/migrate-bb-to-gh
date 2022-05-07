@@ -6,6 +6,7 @@ use crate::{
     spinner,
 };
 
+use crate::bitbucket::{Branch, Repository};
 use crate::config::CONFIG;
 use crate::github::Team;
 use crate::prompts::{Confirm, FuzzySelect, Input, MultiSelect, Select};
@@ -72,29 +73,34 @@ impl Wizard {
         println!("These teams already exist on GitHub:");
         teams.iter().for_each(|t| println!("  - {}", t.name));
 
-        let create_team_actions = self
+        if let Some(new_team) = self
             .ask_create_team(&project.name, &repositories_names, &teams)
-            .await?;
-
-        if let Some(create_team_actions) = create_team_actions {
-            actions.extend(create_team_actions);
+            .await?
+        {
+            actions.extend(new_team);
         }
 
-        let additional_teams = Confirm::with_prompt("Do you want to add access for other teams to these repositories?\n(Consider adding tech-team for those repositories)")
-            .interact()?;
-
-        if additional_teams {
-            let teams = MultiSelect::with_prompt("Select teams")
-                .items(&teams)
-                .interact()?;
-
-            let permission_actions = teams.iter().flat_map(|team| {
-                self.select_permissions_action(&team.name, Some(&team.slug), &repositories_names)
-            });
-
-            actions.extend(permission_actions);
+        if let Some(team_actions) = self.ask_additional_teams(&repositories_names, &teams)? {
+            actions.extend(team_actions);
         }
 
+        if let Some(branch_actions) = self.ask_change_default_branch(&repositories).await? {
+            actions.extend(branch_actions);
+        }
+
+        let migration = Migration::new(&self.version, &actions);
+        self.save_migration_file(&migration)?;
+
+        Ok(WizardResult {
+            actions,
+            migration_file_path: self.output_path.clone(),
+        })
+    }
+
+    async fn ask_change_default_branch(
+        &self,
+        repositories: &Vec<Repository>,
+    ) -> anyhow::Result<Option<Vec<Action>>> {
         let change_branches = Confirm::with_prompt(
             "Do you want to change default branches of selected repositories?",
         )
@@ -105,20 +111,13 @@ impl Wizard {
                 MultiSelect::with_prompt("Select repositories to change the default branch")
                     .items(&repositories)
                     .interact()?;
+            if for_change.is_empty() {
+                println!("No repositories selected, skipping changing default branch...");
+                return Ok(None);
+            }
+            let mut actions = vec![];
             for repo in for_change {
-                let spinner = spinner::create_spinner(format!(
-                    "Fetching branches for '{}' repository...",
-                    repo.full_name
-                ));
-                let branches = self
-                    .bitbucket
-                    .get_repository_branches(&repo.full_name)
-                    .await?;
-                spinner.finish_with_message(format!(
-                    "Fetched {} branches for '{}' repository!",
-                    branches.len(),
-                    repo.full_name
-                ));
+                let branches = self.fetch_repo_branches(&repo).await?;
 
                 let current_idx = branches.iter().position(|b| b.name == repo.mainbranch.name);
                 let default_idx = branches.iter().position(|b| b.name == "development");
@@ -142,15 +141,59 @@ impl Wizard {
                 };
                 actions.push(action);
             }
+
+            Ok(Some(actions))
+        } else {
+            Ok(None)
         }
+    }
 
-        let migration = Migration::new(&self.version, &actions);
-        self.save_migration_file(&migration)?;
+    async fn fetch_repo_branches(&self, repo: &Repository) -> anyhow::Result<Vec<Branch>> {
+        let spinner = spinner::create_spinner(format!(
+            "Fetching branches for '{}' repository...",
+            repo.full_name
+        ));
+        let branches = self
+            .bitbucket
+            .get_repository_branches(&repo.full_name)
+            .await?;
+        spinner.finish_with_message(format!(
+            "Fetched {} branches for '{}' repository!",
+            branches.len(),
+            repo.full_name
+        ));
 
-        Ok(WizardResult {
-            actions,
-            migration_file_path: self.output_path.clone(),
-        })
+        Ok(branches)
+    }
+
+    fn ask_additional_teams(
+        &self,
+        repositories_names: &Vec<String>,
+        teams: &Vec<Team>,
+    ) -> anyhow::Result<Option<Vec<Action>>> {
+        let additional_teams = Confirm::with_prompt("Do you want to add access for other teams to these repositories?\n(Consider adding tech-team for those repositories)")
+            .interact()?;
+
+        if additional_teams {
+            let teams = MultiSelect::with_prompt("Select teams")
+                .items(&teams)
+                .interact()?;
+
+            let permission_actions = teams
+                .iter()
+                .flat_map(|team| {
+                    self.select_permissions_action(
+                        &team.name,
+                        Some(&team.slug),
+                        &repositories_names,
+                    )
+                })
+                .collect();
+
+            Ok(Some(permission_actions))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn ask_create_team(
