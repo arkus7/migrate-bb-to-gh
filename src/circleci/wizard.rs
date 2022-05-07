@@ -148,8 +148,14 @@ impl Wizard {
             ));
             let bb_repo = self.bitbucket.get_repository(&repository.full_name).await?;
             let msg: String = match bb_repo {
-                Some(ref repo) => format!("Found {} repository in Bitbucket, assuming it has no env variables", repo.full_name),
-                None => format!("No repository named '{}' found in Bitbucket!", &repository.name)
+                Some(ref repo) => format!(
+                    "Found {} repository in Bitbucket, assuming it has no env variables",
+                    repo.full_name
+                ),
+                None => format!(
+                    "No repository named '{}' found in Bitbucket!",
+                    &repository.name
+                ),
             };
             spinner.finish_with_message(msg.to_owned());
             if bb_repo.is_none() {
