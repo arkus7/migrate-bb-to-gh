@@ -1,33 +1,23 @@
 use serde::{Deserialize, Serialize};
 
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub(super) struct PageResponse<T> {
+    pub(crate) items: Vec<T>,
+    next_page_token: Option<String>
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct EnvVar {
     pub name: String,
     pub value: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(super) struct EnvVarsResponse {
-    pub(crate) items: Vec<EnvVar>,
-    next_page_token: Option<String>,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct Context {
     pub name: String,
     pub id: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(super) struct ContextsResponse {
-    pub(crate) items: Vec<Context>,
-    next_page_token: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(super) struct ContextVariablesResponse {
-    pub(crate) items: Vec<ContextVariable>,
-    next_page_token: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

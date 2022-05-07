@@ -1,9 +1,6 @@
 mod models;
 
-use crate::circleci::api::models::{
-    ContextOwnerBody, ContextVariablesResponse, ContextsResponse, CreateContextBody,
-    EnvVarsResponse, ExportEnvironmentBody, StartPipelineBody, UpdateContextVariableBody,
-};
+use crate::circleci::api::models::{ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, PageResponse, StartPipelineBody, UpdateContextVariableBody};
 use crate::config::CircleCiConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
@@ -65,7 +62,7 @@ impl CircleCiApi {
             project_slug = project_slug,
         );
 
-        let res: Result<EnvVarsResponse, reqwest::Error> = self.get(url).await;
+        let res: Result<PageResponse<EnvVar>, reqwest::Error> = self.get(url).await;
         let items = match res {
             Ok(res) => res.items,
             Err(err) => {
@@ -87,7 +84,7 @@ impl CircleCiApi {
             org_id = self.org_id(vcs)
         );
 
-        let res: ContextsResponse = self.get(url).await?;
+        let res: PageResponse<Context> = self.get(url).await?;
 
         Ok(res.items)
     }
@@ -101,7 +98,7 @@ impl CircleCiApi {
             context_id = context_id
         );
 
-        let res: ContextVariablesResponse = self.get(url).await?;
+        let res: PageResponse<ContextVariable> = self.get(url).await?;
 
         Ok(res.items)
     }
