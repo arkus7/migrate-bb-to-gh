@@ -546,7 +546,6 @@ dependencies = [
  "dialoguer",
  "futures",
  "indicatif",
- "lazy_static",
  "regex",
  "reqwest",
  "serde",
