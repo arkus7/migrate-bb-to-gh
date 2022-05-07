@@ -1,4 +1,4 @@
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use std::fmt::{Display, Formatter};
 
 use crate::api::{ApiClient, BasicAuth};
@@ -362,7 +362,7 @@ impl ApiClient for GithubApi {
     fn headers(&self) -> Option<HeaderMap> {
         let mut headers = HeaderMap::new();
         headers.insert(
-            "User-Agent",
+            USER_AGENT,
             HeaderValue::from_str(&self.config.username).unwrap(),
         );
 
