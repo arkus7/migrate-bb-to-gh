@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::api::{ApiClient, BasicAuth};
 use crate::config::BitbucketConfig;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,18 +23,6 @@ impl Display for Project {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} (Key: {})", self.name, self.key)
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ProjectResponse {
-    values: Vec<Project>,
-    next: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct RepositoriesResponse {
-    values: Vec<Repository>,
-    next: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -75,11 +64,12 @@ enum CloneLink {
     Https(String),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct BranchesResponse {
-    values: Vec<Branch>,
+#[derive(Deserialize, Debug)]
+struct PageResponse<T> {
+    values: Vec<T>,
     next: Option<String>,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Branch {
     pub name: String,
@@ -107,13 +97,8 @@ impl BitbucketApi {
             "https://api.bitbucket.org/2.0/workspaces/{workspace}/projects",
             workspace = &self.config.workspace_name
         );
-        let mut projects_res: ProjectResponse = self.get(url).await?;
 
-        let mut projects = projects_res.values.clone();
-        while projects_res.next.is_some() {
-            projects_res = self.get(projects_res.next.unwrap()).await?;
-            projects.append(&mut projects_res.values);
-        }
+        let projects = self.get_all_pages(url).await?;
 
         Ok(projects)
     }
@@ -123,7 +108,7 @@ impl BitbucketApi {
         project_key: &str,
     ) -> Result<Vec<Repository>, anyhow::Error> {
         let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}?q=project.key=\"{key}\"&pagelen={pagelen}", workspace = &self.config.workspace_name, key = project_key, pagelen = 100);
-        let res: RepositoriesResponse = self.get(url).await?;
+        let res: PageResponse<Repository> = self.get(url).await?;
 
         Ok(res.values)
     }
@@ -134,13 +119,7 @@ impl BitbucketApi {
     ) -> anyhow::Result<Vec<Branch>> {
         let url = format!("https://api.bitbucket.org/2.0/repositories/{full_repo_name}/refs/branches?pagelen={pagelen}", full_repo_name = full_repo_name, pagelen = 100);
 
-        let mut branches_res: BranchesResponse = self.get(url).await?;
-
-        let mut branches = branches_res.values.clone();
-        while branches_res.next.is_some() {
-            branches_res = self.get(branches_res.next.unwrap()).await?;
-            branches.append(&mut branches_res.values);
-        }
+        let branches = self.get_all_pages(url).await?;
 
         Ok(branches)
     }
@@ -169,6 +148,26 @@ impl BitbucketApi {
                 None => Err(anyhow::anyhow!("Unknown error: {}", err)),
             },
         }
+    }
+
+    async fn get_all_pages<T>(&self, initial_url: String) -> anyhow::Result<Vec<T>>
+    where
+        T: DeserializeOwned,
+    {
+        let mut result = vec![];
+        let mut url = initial_url;
+        loop {
+            let response: PageResponse<T> = self.get(url).await?;
+            result.extend(response.values);
+
+            if let Some(next_url) = response.next {
+                url = next_url;
+            } else {
+                break;
+            }
+        }
+
+        Ok(result)
     }
 }
 
