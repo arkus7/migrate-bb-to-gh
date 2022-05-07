@@ -251,8 +251,6 @@ impl Migrator {
             .arg(target_path)
             .output()?;
 
-        // println!("{}", String::from_utf8(clone_command.stdout)?);
-
         if !clone_command.status.success() {
             let err_output = String::from_utf8(clone_command.stderr)?;
             return Err(anyhow!(
@@ -289,8 +287,6 @@ impl Migrator {
             .arg(remote_url)
             .current_dir(repo_path)
             .output()?;
-
-        // println!("{}", String::from_utf8(push_command.stdout)?);
 
         if !push_command.status.success() {
             let err_output = String::from_utf8(push_command.stderr)?;
