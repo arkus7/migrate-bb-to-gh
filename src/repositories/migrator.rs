@@ -13,6 +13,7 @@ use crate::{config::CONFIG, github::TeamRepositoryPermission, spinner};
 use crate::github::GithubApi;
 use crate::repositories::action::{describe_actions, Action, Repository};
 use anyhow::{anyhow, Context};
+use crate::prompts::Confirm;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Migration {
@@ -91,8 +92,7 @@ impl Migrator {
 
         println!("{}", describe_actions(&actions));
 
-        let confirmed = Confirm::new()
-            .with_prompt("Are you sure you want to migrate?")
+        let confirmed = Confirm::with_prompt("Are you sure you want to migrate?")
             .interact()?;
 
         if !confirmed {
