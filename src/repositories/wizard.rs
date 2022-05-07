@@ -124,7 +124,9 @@ impl Wizard {
             for repo in for_change {
                 let branches = self.fetch_repo_branches(repo).await?;
 
-                let current_idx = branches.iter().position(|b| b.name == repo.mainbranch.name);
+                let current_idx = branches
+                    .iter()
+                    .position(|b| b.name == repo.main_branch.name);
                 let default_idx = branches.iter().position(|b| b.name == "development");
 
                 let default_idx = match (default_idx, current_idx) {

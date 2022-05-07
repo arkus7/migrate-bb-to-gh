@@ -41,12 +41,13 @@ pub struct Repository {
     links: RepositoryLinks,
     pub full_name: String,
     pub name: String,
-    pub mainbranch: Branch,
+    #[serde(rename = "mainbranch")]
+    pub main_branch: Branch,
 }
 
 impl Display for Repository {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (branch: {})", self.name, self.mainbranch)
+        write!(f, "{} (branch: {})", self.name, self.main_branch)
     }
 }
 
