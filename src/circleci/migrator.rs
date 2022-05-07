@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Error};
 use std::path::PathBuf;
 use std::{fs::File, path::Path};
+use std::time::Instant;
 
 use crate::circleci::action::{describe_actions, Action, EnvVar};
 use crate::circleci::api;
@@ -54,9 +55,14 @@ impl Migrator {
             return Err(anyhow!("Migration canceled"));
         }
 
+        let start = Instant::now();
+
         for action in actions {
             let _ = self.run(&action).await?;
         }
+
+        let duration = start.elapsed();
+        println!("Migration completed in {} seconds!", duration.as_secs());
 
         Ok(())
     }
