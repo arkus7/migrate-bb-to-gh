@@ -1,9 +1,7 @@
 mod models;
 
-use crate::circleci::api::models::{
-    ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, PageResponse, StartPipelineBody,
-    UpdateContextVariableBody,
-};
+use anyhow::Error;
+use crate::circleci::api::models::{ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, FollowProjectBody, FollowProjectResponse, PageResponse, StartPipelineBody, UpdateContextVariableBody};
 use crate::config::CircleCiConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Url;
@@ -143,15 +141,30 @@ impl CircleCiApi {
     }
 
     pub async fn start_pipeline(&self, repo_name: &str, branch: &str) -> Result<(), anyhow::Error> {
+        let follow_resp = self.follow_project(repo_name, branch).await?;
+
+        match follow_resp.first_build {
+            None => {
+                let url = format!("https://circleci.com/api/v2/project/gh/{repo_name}/pipeline", repo_name = repo_name);
+                let body = StartPipelineBody { branch };
+                let res: serde_json::Value = self.post(url, Some(body)).await?;
+                dbg!(res);
+                Ok(())
+            }
+            Some(_) => Ok(())
+        }
+    }
+
+    async fn follow_project(&self, repo_name: &str, branch: &str) -> Result<FollowProjectResponse, Error> {
         let url = format!(
             "https://circleci.com/api/v1.1/project/gh/{repo_name}/follow",
             repo_name = repo_name
         );
-        let body = StartPipelineBody { branch };
+        let body = FollowProjectBody { branch };
 
-        let _: serde_json::Value = self.post(url, Some(body)).await?;
+        let res: FollowProjectResponse = self.post(url, Some(body)).await?;
 
-        Ok(())
+        Ok(res)
     }
 
     pub async fn create_context(
