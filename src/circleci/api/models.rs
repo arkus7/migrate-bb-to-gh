@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(super) struct PageResponse<T> {
     pub(crate) items: Vec<T>,
-    next_page_token: Option<String>,
+    pub(crate) next_page_token: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
