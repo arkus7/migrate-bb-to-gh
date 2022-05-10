@@ -147,8 +147,7 @@ impl CircleCiApi {
             None => {
                 let url = format!("https://circleci.com/api/v2/project/gh/{repo_name}/pipeline", repo_name = repo_name);
                 let body = StartPipelineBody { branch };
-                let res: serde_json::Value = self.post(url, Some(body)).await?;
-                dbg!(res);
+                let _: serde_json::Value = self.post(url, Some(body)).await?;
                 Ok(())
             }
             Some(_) => Ok(())
