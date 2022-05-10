@@ -1,6 +1,7 @@
 use std::{collections::HashSet, str::FromStr};
 
 use serde::{Deserialize, Serialize};
+use crate::circleci::config::raw::JobEntry;
 
 use self::raw::Context;
 
@@ -21,18 +22,22 @@ impl FromStr for Config {
             .into_values()
             .filter(|w| matches!(w, raw::WorkflowEntry::Workflow(_)))
             .flat_map(|w| match w {
-                raw::WorkflowEntry::Workflow(w) => w.jobs,
+                raw::WorkflowEntry::Workflow(w) => dbg!(w.jobs),
                 _ => unreachable!(),
             })
-            .flat_map(|j| j.into_values())
+            .filter(|j| matches!(j, raw::JobEntry::Map(_)))
+            .flat_map(|j| match j {
+                JobEntry::Map(map) => map.into_values().collect::<Vec<_>>(),
+                _ => unreachable!(),
+            })
             .flat_map(|j| j.context)
             .for_each(|c| match c {
                 Context::String(ctx) => {
-                    contexts.insert(ctx);
+                    contexts.insert(dbg!(ctx));
                 }
                 Context::Vec(ctx) => {
                     ctx.into_iter().for_each(|c| {
-                        contexts.insert(c);
+                        contexts.insert(dbg!(c));
                     });
                 }
             });
@@ -60,7 +65,14 @@ mod raw {
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     pub(crate) struct Workflow {
-        pub jobs: Vec<BTreeMap<String, Job>>,
+        pub jobs: Vec<JobEntry>,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub(crate) enum JobEntry {
+        Map(BTreeMap<String, Job>),
+        Name(String),
     }
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
