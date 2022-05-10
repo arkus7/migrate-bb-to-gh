@@ -22,7 +22,7 @@ impl FromStr for Config {
             .into_values()
             .filter(|w| matches!(w, raw::WorkflowEntry::Workflow(_)))
             .flat_map(|w| match w {
-                raw::WorkflowEntry::Workflow(w) => dbg!(w.jobs),
+                raw::WorkflowEntry::Workflow(w) => w.jobs,
                 _ => unreachable!(),
             })
             .filter(|j| matches!(j, raw::JobEntry::Map(_)))
@@ -33,11 +33,11 @@ impl FromStr for Config {
             .flat_map(|j| j.context)
             .for_each(|c| match c {
                 Context::String(ctx) => {
-                    contexts.insert(dbg!(ctx));
+                    contexts.insert(ctx);
                 }
                 Context::Vec(ctx) => {
                     ctx.into_iter().for_each(|c| {
-                        contexts.insert(dbg!(c));
+                        contexts.insert(c);
                     });
                 }
             });
