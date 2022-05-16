@@ -1,11 +1,11 @@
 mod models;
 
-use crate::circleci::api::models::{
-    ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, PageResponse, StartPipelineBody,
-    UpdateContextVariableBody,
-};
+use anyhow::Error;
+use crate::circleci::api::models::{ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, FollowProjectBody, FollowProjectResponse, PageResponse, StartPipelineBody, UpdateContextVariableBody};
 use crate::config::CircleCiConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::Url;
+use serde::de::DeserializeOwned;
 
 use crate::api::{ApiClient, BasicAuth};
 pub(crate) use models::{Context, ContextVariable, EnvVar};
@@ -87,9 +87,9 @@ impl CircleCiApi {
             org_id = self.org_id(vcs)
         );
 
-        let res: PageResponse<Context> = self.get(url).await?;
+        let contexts = self.get_all_pages(&url).await?;
 
-        Ok(res.items)
+        Ok(contexts)
     }
 
     pub async fn get_context_variables(
@@ -141,15 +141,29 @@ impl CircleCiApi {
     }
 
     pub async fn start_pipeline(&self, repo_name: &str, branch: &str) -> Result<(), anyhow::Error> {
+        let follow_resp = self.follow_project(repo_name, branch).await?;
+
+        match follow_resp.first_build {
+            None => {
+                let url = format!("https://circleci.com/api/v2/project/gh/{repo_name}/pipeline", repo_name = repo_name);
+                let body = StartPipelineBody { branch };
+                let _: serde_json::Value = self.post(url, Some(body)).await?;
+                Ok(())
+            }
+            Some(_) => Ok(())
+        }
+    }
+
+    async fn follow_project(&self, repo_name: &str, branch: &str) -> Result<FollowProjectResponse, Error> {
         let url = format!(
             "https://circleci.com/api/v1.1/project/gh/{repo_name}/follow",
             repo_name = repo_name
         );
-        let body = StartPipelineBody { branch };
+        let body = FollowProjectBody { branch };
 
-        let _: serde_json::Value = self.post(url, Some(body)).await?;
+        let res: FollowProjectResponse = self.post(url, Some(body)).await?;
 
-        Ok(())
+        Ok(res)
     }
 
     pub async fn create_context(
@@ -186,6 +200,33 @@ impl CircleCiApi {
 
         let var = self.put(url, Some(body)).await?;
         Ok(var)
+    }
+
+    async fn get_all_pages<T>(&self, initial_url: &str) -> anyhow::Result<Vec<T>>
+        where
+            T: DeserializeOwned,
+    {
+        let mut result = vec![];
+        let mut url = initial_url.to_string();
+        let parsed = Url::parse(initial_url)?;
+        let contains_query = parsed.query().is_some();
+
+        loop {
+            let response: PageResponse<T> = self.get(url).await?;
+            result.extend(response.items);
+
+            if let Some(next_page_token) = response.next_page_token {
+                if contains_query {
+                    url = format!("{}&page-token={}", initial_url, next_page_token);
+                } else {
+                    url = format!("{}?page-token={}", initial_url, next_page_token);
+                }
+            } else {
+                break;
+            }
+        }
+
+        Ok(result)
     }
 
     fn org_id(&self, provider: VCSProvider) -> &str {
