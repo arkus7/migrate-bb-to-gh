@@ -1,7 +1,7 @@
 use std::{collections::HashSet, str::FromStr};
 
-use serde::{Deserialize, Serialize};
 use crate::circleci::config::raw::JobEntry;
+use serde::{Deserialize, Serialize};
 
 use self::raw::Context;
 

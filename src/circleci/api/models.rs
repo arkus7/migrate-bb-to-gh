@@ -46,7 +46,7 @@ pub(super) struct FollowProjectBody<'a> {
 pub(super) struct FollowProjectResponse {
     pub(crate) first_build: Option<bool>,
     pub(crate) following: bool,
-    pub(crate) workflow: Option<bool>
+    pub(crate) workflow: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

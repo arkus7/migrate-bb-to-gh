@@ -1,8 +1,11 @@
 mod models;
 
-use anyhow::Error;
-use crate::circleci::api::models::{ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, FollowProjectBody, FollowProjectResponse, PageResponse, StartPipelineBody, UpdateContextVariableBody};
+use crate::circleci::api::models::{
+    ContextOwnerBody, CreateContextBody, ExportEnvironmentBody, FollowProjectBody,
+    FollowProjectResponse, PageResponse, StartPipelineBody, UpdateContextVariableBody,
+};
 use crate::config::CircleCiConfig;
+use anyhow::Error;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
@@ -145,16 +148,23 @@ impl CircleCiApi {
 
         match follow_resp.first_build {
             None => {
-                let url = format!("https://circleci.com/api/v2/project/gh/{repo_name}/pipeline", repo_name = repo_name);
+                let url = format!(
+                    "https://circleci.com/api/v2/project/gh/{repo_name}/pipeline",
+                    repo_name = repo_name
+                );
                 let body = StartPipelineBody { branch };
                 let _: serde_json::Value = self.post(url, Some(body)).await?;
                 Ok(())
             }
-            Some(_) => Ok(())
+            Some(_) => Ok(()),
         }
     }
 
-    async fn follow_project(&self, repo_name: &str, branch: &str) -> Result<FollowProjectResponse, Error> {
+    async fn follow_project(
+        &self,
+        repo_name: &str,
+        branch: &str,
+    ) -> Result<FollowProjectResponse, Error> {
         let url = format!(
             "https://circleci.com/api/v1.1/project/gh/{repo_name}/follow",
             repo_name = repo_name
@@ -203,8 +213,8 @@ impl CircleCiApi {
     }
 
     async fn get_all_pages<T>(&self, initial_url: &str) -> anyhow::Result<Vec<T>>
-        where
-            T: DeserializeOwned,
+    where
+        T: DeserializeOwned,
     {
         let mut result = vec![];
         let mut url = initial_url.to_string();
