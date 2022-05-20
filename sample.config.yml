@@ -1,0 +1,23 @@
+git:
+  push_ssh_key: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ...
+    -----END OPENSSH PRIVATE KEY-----
+  pull_ssh_key: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ...
+    -----END OPENSSH PRIVATE KEY-----
+bitbucket:
+  username: some-bb-username
+  password: bb-user-token
+  workspace_name: bb-org-name
+
+github:
+  username: gh-username
+  password: gh-personal-token
+  organization_name: gh-org-name
+
+circleci:
+  token: circleci-personal-token
+  bitbucket_org_id: circleci-bb-org-id
+  github_org_id: circleci-gh-org-id
