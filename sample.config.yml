@@ -1,23 +1,44 @@
 git:
+  # SSH key used to push repositories to GitHub
   push_ssh_key: |
     -----BEGIN OPENSSH PRIVATE KEY-----
     ...
     -----END OPENSSH PRIVATE KEY-----
+  # SSH key used to pull repositories from Bitbucket
   pull_ssh_key: |
     -----BEGIN OPENSSH PRIVATE KEY-----
     ...
     -----END OPENSSH PRIVATE KEY-----
 bitbucket:
+  # username of Bitbucket user that should be used for fetching repositories from Bitbucket
   username: some-bb-username
+  # app password created for the user above
+  # you can create app password at https://bitbucket.org/account/settings/app-passwords/
+  # required permissions: projects:read, repositories:read
   password: bb-user-token
+  # name of the organization from where the repositories should be fetched
+  # in case you're migrating repositories from a personal account, use your username
   workspace_name: bb-org-name
 
 github:
+  # username of GitHub user that should be used for managing repositories in GitHub
   username: gh-username
+  # personal access token of the above user
+  # you can create personal access token at https://github.com/settings/tokens
+  # required permissions: repo, admin:org
   password: gh-personal-token
+  # name of the organization from where the repositories should be created in GitHub
+  # in case you're migrating repositories to a personal account, use your username
   organization_name: gh-org-name
 
+### optional (only for `circleci` feature
 circleci:
+  # personal access token from CircleCI
+  # you can create access token at https://app.circleci.com/settings/user/tokens
   token: circleci-personal-token
+  # organization ID of Bitbucket CircleCI org
+  # you should be able to find it at https://app.circleci.com/settings/organization/bitbucket/<org-name>
   bitbucket_org_id: circleci-bb-org-id
+  # organization ID of GitHub CircleCI org
+  # you should be able to find it at https://app.circleci.com/settings/organization/github/<org-name>
   github_org_id: circleci-gh-org-id
