@@ -73,7 +73,7 @@ cargo build --features circleci --release
 ### Troubleshooting
 
 In case you see an error similar to the one below:
-```shell
+```text
 error: couldn't read config.yml: No such file or directory (os error 2)
  --> build.rs:5:18
   |
