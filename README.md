@@ -146,7 +146,7 @@ Give a ⭐️ if this project helped you in any way!
 
 Copyright © 2022 [Arkadiusz Żmudzin](https://github.com/arkus7).
 
-This project is [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE) licensed.
+This project is [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) licensed.
 
 ***
 _This README uses template from ❤️ [readme-md-generator](https://github.com/kefranabg/readme-md-generator)_
