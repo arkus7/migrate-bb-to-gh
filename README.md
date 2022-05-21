@@ -26,6 +26,8 @@ This setup enables to build the binary file with common configuration, without a
 **If you want to share the build binary, share it only with people you trust.**
 </details>
 
+The configuration file contents are _"encrypted"_ before they are put inside binary (if you're curious how, check [build.rs file](build.rs)).
+
 Example configuration file can be found in [sample.config.yml](./sample.config.yml) file.
 
 Config file contains:
@@ -67,6 +69,22 @@ If you'd like to use this feature, you need to build the binary with `--features
 ```sh
 cargo build --features circleci --release
 ```
+
+### Troubleshooting
+
+In case you see an error similar to the one below:
+```shell
+error: couldn't read config.yml: No such file or directory (os error 2)
+ --> build.rs:5:18
+  |
+5 |     let config = include_bytes!("config.yml");
+  |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `include_bytes` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: could not compile `migrate-bb-to-gh` due to previous error
+```
+make sure your `config.yml` file is in the root directory of the project (not inside `src`).
 
 ## Usage
 
