@@ -79,13 +79,15 @@ You can list available commands by using `--help` option
 ### Wizard
 
 First, you need to go through a `wizard`, which will ask you to select repositories you want to migrate from Bitbucket,
-letting you select who in your GitHub organization should have access to the selected repositories (using Teams), and change the default branch.
+letting you select who in your GitHub organization should have access to the selected repositories 
+(using [Teams](https://docs.github.com/en/organizations/organizing-members-into-teams/about-teams)), and change the default branch.
 
 ```shell
 ./migrate-bb-to-gh wizard
 ```
 
-The wizard results with a migration file named (by default) `migration.json`, which contains all the details about what needs to be done during the migration.
+The wizard results with a migration file named (by default) `migration.json`, 
+which contains all the details about what needs to be done during the migration.
 You can inspect the file to see what will be done when the migration starts.
 
 At the end of the wizard, the CLI will list all the actions in human-readable form, so you can review it there as well.
@@ -101,7 +103,8 @@ Not overriding file in this case results with cancellation of the wizard.
 
 ### Migrate
 
-When your `migration.json` file is ready, you can start the migration by using `migrate` command, passing the path to the migration file as a positional argument:
+When your `migration.json` file is ready, you can start the migration by using `migrate` command, 
+passing the path to the migration file as a positional argument:
 
 ```shell
 ./migrate-bb-to-gh migrate migration.json
