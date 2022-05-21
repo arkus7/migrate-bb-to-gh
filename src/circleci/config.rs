@@ -1,5 +1,6 @@
 use std::{collections::HashSet, str::FromStr};
 
+use crate::circleci::config::raw::JobEntry;
 use serde::{Deserialize, Serialize};
 
 use self::raw::Context;
@@ -24,7 +25,11 @@ impl FromStr for Config {
                 raw::WorkflowEntry::Workflow(w) => w.jobs,
                 _ => unreachable!(),
             })
-            .flat_map(|j| j.into_values())
+            .filter(|j| matches!(j, raw::JobEntry::Map(_)))
+            .flat_map(|j| match j {
+                JobEntry::Map(map) => map.into_values().collect::<Vec<_>>(),
+                _ => unreachable!(),
+            })
             .flat_map(|j| j.context)
             .for_each(|c| match c {
                 Context::String(ctx) => {
@@ -60,7 +65,14 @@ mod raw {
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     pub(crate) struct Workflow {
-        pub jobs: Vec<BTreeMap<String, Job>>,
+        pub jobs: Vec<JobEntry>,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub(crate) enum JobEntry {
+        Map(BTreeMap<String, Job>),
+        Name(String),
     }
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]

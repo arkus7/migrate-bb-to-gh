@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(super) struct PageResponse<T> {
     pub(crate) items: Vec<T>,
-    next_page_token: Option<String>,
+    pub(crate) next_page_token: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,12 +39,14 @@ pub(super) struct StartPipelineBody<'a> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(super) struct FollowProjectBody<'a> {
-    branch: &'a str,
+    pub(crate) branch: &'a str,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(super) struct FollowProjectResponse {
-    first_build: Option<bool>,
+    pub(crate) first_build: Option<bool>,
+    pub(crate) following: bool,
+    pub(crate) workflow: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

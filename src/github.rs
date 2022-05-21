@@ -241,6 +241,7 @@ impl GithubApi {
         Ok(res)
     }
 
+    #[cfg(feature = "circleci")]
     pub async fn get_team_repositories(&self, team_slug: &str) -> anyhow::Result<Vec<Repository>> {
         let url_factory = |page: u32| {
             format!(
@@ -270,6 +271,7 @@ impl GithubApi {
         Ok(res)
     }
 
+    #[cfg(feature = "circleci")]
     pub async fn get_repo_branches(&self, full_repo_name: &str) -> anyhow::Result<Vec<Branch>> {
         let url_factory = |page: u32| {
             format!(
@@ -284,6 +286,7 @@ impl GithubApi {
         Ok(branches)
     }
 
+    #[cfg(feature = "circleci")]
     pub async fn get_file_contents(
         &self,
         full_repo_name: &str,

@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
 use clap::{CommandFactory, Parser, Subcommand};
+#[cfg(feature = "circleci")]
 use migrate_bb_to_gh::circleci;
 use migrate_bb_to_gh::config;
 use migrate_bb_to_gh::repositories::{self, Migrator, Wizard};
 
-/// Utility tool for migration of repositories from Bitbucket to GitHub for Mood Up Team
+/// Utility tool for migration of repositories from Bitbucket to GitHub for organizations
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
@@ -33,6 +34,7 @@ enum Commands {
         #[clap(parse(from_os_str), value_name = "MIGRATION_FILE")]
         migration_file: PathBuf,
     },
+    #[cfg(feature = "circleci")]
     /// Tool for migrating CircleCI configuration
     #[clap(name = "circleci")]
     CircleCi {
@@ -41,6 +43,7 @@ enum Commands {
     },
 }
 
+#[cfg(feature = "circleci")]
 #[derive(Subcommand)]
 enum CircleCiCommands {
     /// Guides you through migration process, generating migration file for "migrate" subcommand
@@ -93,6 +96,7 @@ async fn main() -> Result<(), anyhow::Error> {
             let migrator = Migrator::new(migration_file, version, config);
             let _ = migrator.migrate().await?;
         }
+        #[cfg(feature = "circleci")]
         Commands::CircleCi { command } => match &command {
             CircleCiCommands::Wizard { output } => {
                 let res = circleci::Wizard::new(output, version, config).run().await?;

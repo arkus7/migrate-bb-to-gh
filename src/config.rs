@@ -16,6 +16,7 @@ fn decrypt_config(config_bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
 pub struct Config {
     pub bitbucket: BitbucketConfig,
     pub github: GitHubConfig,
+    #[cfg(feature = "circleci")]
     pub circleci: CircleCiConfig,
     pub git: GitConfig,
 }
@@ -34,6 +35,7 @@ pub struct GitHubConfig {
     pub organization_name: String,
 }
 
+#[cfg(feature = "circleci")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CircleCiConfig {
     pub token: String,
