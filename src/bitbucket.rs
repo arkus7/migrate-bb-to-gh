@@ -124,6 +124,7 @@ impl BitbucketApi {
         Ok(branches)
     }
 
+    #[cfg(feature = "circleci")]
     pub async fn get_repository(&self, repo_name: &str) -> anyhow::Result<Option<Repository>> {
         let url = format!(
             "https://api.bitbucket.org/2.0/repositories/{repo_name}",
