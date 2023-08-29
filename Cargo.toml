@@ -21,7 +21,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 serde_yaml = "0.8.23"
 tempdir = "0.3.7"
-tokio = { version = "1.17.0", features = ["full"] }
+tokio = { version = "1.18.5", features = ["full"] }
 
 [build-dependencies]
 base64 = "0.13.0"
